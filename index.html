@@ -562,7 +562,9 @@ function viewOverview(){
     <div class="stats"><div class="stat"><span>Položek</span><b>${fmt(items)}</b></div><div class="stat"><span>Kusů</span><b>${fmt(pcs)}</b></div><div class="stat"><span>V katalogu</span><b>${fmt(S.catalog.length)}</b></div></div>
     <div class="areabar">${AREAS.map(a=>`<i class="dot" style="background:var(${a.c})"></i><span>${a.label}</span><span class="num">${fmt(sum[a.id][0])} pol. · ${fmt(sum[a.id][1])} ks</span>`).join("")}</div>
     <div class="hint">Počítali: ${ppl.length?ppl.map(([n,c])=>`${esc(n)} (${c})`).join(", "):"zatím nikdo"}</div>
-    <button class="btn primary big" type="button" id="exportBtn" ${S.catalog.length?"":"disabled"}>Stáhnout výsledek pro Cézar (.xlsx)</button>
+    <button class="btn primary big" type="button" id="csvBtn" ${S.catalog.length?"":"disabled"}>Stáhnout CSV pro import do Cézaru</button>
+    <p class="hint" style="margin:0">Řádky „číslo zboží;množství“ bez záhlaví, pro definici importu „Inventura – import“. Obsahuje spočítané zboží a s nulou i zboží, které Cézar eviduje se stavem, ale nikdo ho nenačetl.</p>
+    <button class="btn" type="button" id="exportBtn" ${S.catalog.length?"":"disabled"}>Stáhnout přehled do Excelu (.xlsx)</button>
   </section>
   <section class="panel"><div class="chips">${filt.map(([k,l])=>`<button type="button" class="chip" data-ovf="${k}" aria-pressed="${S.ovFilter===k}">${l}</button>`).join("")}</div>
     <div class="chips"><button type="button" class="chip" data-ova="ALL" aria-pressed="${S.ovArea==="ALL"}">Všechny úseky</button>${AREAS.map(a=>`<button type="button" class="chip" data-ova="${a.id}" aria-pressed="${S.ovArea===a.id}">${a.label}</button>`).join("")}</div>
@@ -625,6 +627,19 @@ function exportXlsx(){
   XLSX.writeFile(wb,`Inventura-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}.xlsx`);
 }
 
+function exportCsv(){
+  const t=totals(); const lines=[];
+  S.catalog.forEach(r=>{
+    const o=t.get(r[2]); const c=o?Math.round(o.ALL*1000)/1000:0; const s=+r[3]||0;
+    if(c>0||s!==0)lines.push(r[2]+";"+String(c));
+  });
+  const unk=[...t].filter(([k,o])=>k.startsWith("?")&&o.ALL>0).length;
+  const d=new Date(),name=`Inventura-Cezar-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}.csv`;
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([lines.join("\r\n")+"\r\n"],{type:"text/csv"}));a.download=name;
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);
+  toast(`${fmt(lines.length)} řádků uloženo`+(unk?` · ${unk} neznámých položek dořešte ručně`:""));
+}
+
 /* ---------- events ---------- */
 document.addEventListener("click",async e=>{
   const b=e.target.closest("button");if(!b)return;
@@ -642,6 +657,7 @@ document.addEventListener("click",async e=>{
     case "torchBtn":try{CAM.torch=!CAM.torch;await CAM.track.applyConstraints({advanced:[{torch:CAM.torch}]})}catch(err){toast("Světlo nejde zapnout.")}break;
     case "setBtn":{const v=parseQ($("#qty").value);if(isNaN(v)||v<0){toast("Zadejte číslo");break}setQ(S.current,v);afterSave();break}
     case "exportBtn":exportXlsx();break;
+    case "csvBtn":exportCsv();break;
     case "reloadCat":loadCatalog();toast("Načítám seznam zboží…");break;
     case "copyLink":try{await navigator.clipboard.writeText(shareLink());toast("Odkaz zkopírován")}catch(err){toast("Kopírování nejde, podržte prst na QR kódu.")}break;
   }
