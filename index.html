@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1f4fa8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Inventura">
+<title>Inventura Barvy Laky Růžička</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap&subset=latin-ext">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+/* Layout: one narrow phone column; sticky area switcher, live camera strip above the work area, bottom tab bar */
+:root{
+  --bg:#f3f4f2; --surface:#ffffff; --sunk:#e8eae6; --fg:#1d2420; --muted:#5d6762; --line:#d3d7d2;
+  --accent:#1f4fa8; --accent-fg:#ffffff;
+  --sklad:#b9851c; --obchod:#1f4fa8; --michr:#a5432a;
+  --ok:#2f7a45; --warn:#a86b00; --bad:#b3261e;
+  --f-ui:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-label:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-code:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --area:var(--obchod);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#121614; --surface:#1b211e; --sunk:#232a26; --fg:#e6ebe7; --muted:#9aa49f; --line:#323a36;
+  --accent:#7ea2ec; --accent-fg:#0d1530; --sklad:#e0aa45; --obchod:#7ea2ec; --michr:#e07a5f;
+  --ok:#6cc488; --warn:#e8b14a; --bad:#f2867d; color-scheme:dark}}
+body[data-area="SKLAD"]{--area:var(--sklad)} body[data-area="OBCHOD"]{--area:var(--obchod)} body[data-area="MICHARNA"]{--area:var(--michr)}
+*{box-sizing:border-box}
+html,body{min-height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.4 var(--f-ui);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 calc(96px + env(safe-area-inset-bottom,0px));-webkit-text-size-adjust:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+[hidden]{display:none!important}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:12px 10px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+h1{font:700 22px/1.1 var(--f-label);letter-spacing:.02em;text-transform:uppercase;margin:0}
+h2{font:700 17px/1.2 var(--f-label);letter-spacing:.06em;text-transform:uppercase;margin:0;color:var(--muted)}
+.who{font-size:13px;color:var(--muted);background:none;border:0;padding:4px 0;cursor:pointer;text-decoration:underline dotted;font-family:inherit}
+.areas{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.areas button{font:700 16px/1 var(--f-label);letter-spacing:.06em;text-transform:uppercase;padding:11px 4px;border-radius:8px;border:2px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px}
+.areas button i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.areas button[aria-pressed="true"]{border-color:var(--area);background:color-mix(in srgb,var(--area) 14%,var(--surface))}
+.banner{font-size:14px;padding:10px 12px;border-radius:8px;background:var(--sunk);color:var(--fg)}
+.banner.warn{background:color-mix(in srgb,var(--warn) 16%,var(--surface))}
+.banner.bad{background:color-mix(in srgb,var(--bad) 14%,var(--surface))}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.scanrow{display:grid;grid-template-columns:1fr auto;gap:8px}
+input[type=text],input[type=search],input[type=url]{font:500 18px/1.2 var(--f-ui);width:100%;padding:12px;border-radius:8px;border:1.5px solid var(--line);background:var(--bg);color:var(--fg);min-width:0}
+input:focus-visible,button:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:1px}
+.btn{font:600 16px/1 var(--f-ui);padding:13px 16px;border-radius:8px;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;text-decoration:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.area{background:var(--area);border-color:var(--area);color:#fff}
+.btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 50%,var(--line))}
+.btn.big{padding:18px;font-size:18px;width:100%}
+.btn[disabled]{opacity:.5;cursor:default}
+.hint{font-size:13px;color:var(--muted)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.code{font:500 14px/1.3 var(--f-code);color:var(--muted);overflow-wrap:anywhere}
+.item-name{font:700 20px/1.2 var(--f-ui);margin:0;overflow-wrap:anywhere}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.stat{background:var(--sunk);border-radius:8px;padding:8px 10px;min-width:0}
+.stat b{display:block;font:700 22px/1.1 var(--f-label);font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.stat.hl{background:color-mix(in srgb,var(--area) 16%,var(--surface))}
+.qty{display:grid;grid-template-columns:56px 1fr 56px;gap:6px}
+.qty button{font:700 24px/1 var(--f-ui)}
+.qty input{text-align:center;font:700 26px/1 var(--f-label);font-variant-numeric:tabular-nums}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.list{display:flex;flex-direction:column}
+.li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border:0;border-top:1px solid var(--line);text-align:left;background:none;color:inherit;font:inherit;cursor:pointer;width:100%}
+.li:first-child{border-top:0}
+.li .n{font-weight:600;overflow-wrap:anywhere;min-width:0}
+.li .q{font:700 19px/1.1 var(--f-label);font-variant-numeric:tabular-nums;text-align:right;align-self:center;grid-row:span 2}
+.li .s{font:500 12.5px/1.3 var(--f-code);color:var(--muted);min-width:0;overflow-wrap:anywhere}
+.pos{color:var(--ok)} .neg{color:var(--bad)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:600 14px/1 var(--f-ui);padding:9px 12px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.areabar{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:14px}
+.areabar .dot{width:12px;height:12px;border-radius:3px}
+.areabar .num{font:700 17px/1 var(--f-label);font-variant-numeric:tabular-nums;text-align:right}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+nav.tabs button{font:700 15px/1 var(--f-label);letter-spacing:.07em;text-transform:uppercase;padding:16px 4px;background:none;border:0;color:var(--muted);cursor:pointer;border-top:3px solid transparent}
+nav.tabs button[aria-current="page"]{color:var(--fg);border-top-color:var(--area)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:11px 16px;border-radius:8px;font-weight:600;z-index:20;max-width:calc(100% - 32px);text-align:center}
+.flash{animation:flash .6s ease-out}
+@keyframes flash{from{background:color-mix(in srgb,var(--ok) 30%,var(--surface))}to{background:var(--surface)}}
+@media (prefers-reduced-motion:reduce){.flash,.cambox.hit{animation:none}}
+.toggle{display:flex;align-items:center;gap:10px;font-size:15px;cursor:pointer}
+.toggle input{width:22px;height:22px;accent-color:var(--area)}
+.confirm{border:1.5px solid var(--bad);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px;margin:0}
+.kv dt{color:var(--muted)} .kv dd{margin:0;overflow-wrap:anywhere}
+ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:15px}
+/* camera */
+.cambox{position:relative;border-radius:10px;overflow:hidden;background:#000;height:min(34vh,280px);border:3px solid var(--area)}
+.cambox video{width:100%;height:100%;object-fit:cover;display:block}
+.cambox .guide{position:absolute;left:8%;right:8%;top:50%;height:2px;background:#ff3b30;box-shadow:0 0 8px #ff3b30;opacity:.85}
+.cambox .frame{position:absolute;left:5%;right:5%;top:25%;bottom:25%;border:2px solid rgba(255,255,255,.7);border-radius:8px}
+.cambox .camtools{position:absolute;right:8px;top:8px;display:flex;gap:6px}
+.cambox .camtools button{background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:8px;padding:9px 12px;font:600 14px var(--f-ui);cursor:pointer}
+.cambox .camres{position:absolute;left:8px;right:8px;bottom:8px;background:rgba(0,0,0,.65);color:#fff;border-radius:8px;padding:8px 10px;font-weight:600;font-size:15px}
+.cambox .paused{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);color:#fff;font:700 18px var(--f-label);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border:0;width:100%}
+.cambox.hit{animation:hit .45s ease-out}
+@keyframes hit{from{border-color:var(--ok);box-shadow:0 0 0 6px color-mix(in srgb,var(--ok) 50%,transparent)}to{box-shadow:none}}
+#qr{align-self:center;background:#fff;padding:10px;border-radius:8px}
+#qr img,#qr canvas{display:block}
+</style>
+</head>
+<body data-area="OBCHOD">
+<div class="wrap">
+  <header>
+    <div class="top">
+      <h1>Inventura</h1>
+      <button class="who" id="whoBtn" type="button">Kdo počítá: <span id="whoName">nezadáno</span></button>
+    </div>
+    <div class="areas" id="areas" role="group" aria-label="Úsek"></div>
+  </header>
+  <div id="status" class="wrap"></div>
+  <section class="cambox" id="cambox" hidden>
+    <video id="video" playsinline muted autoplay></video>
+    <div class="frame"></div><div class="guide"></div>
+    <div class="camtools"><button type="button" id="torchBtn" hidden>Světlo</button><button type="button" id="camStop">Zavřít</button></div>
+    <div class="camres" id="camres">Namiřte na čárový kód</div>
+    <button class="paused" id="camPaused" type="button" hidden>Klepněte pro další skenování</button>
+  </section>
+  <main id="main" class="wrap"></main>
+</div>
+<nav class="tabs" aria-label="Sekce">
+  <button type="button" data-view="scan">Počítání</button>
+  <button type="button" data-view="overview">Přehled</button>
+  <button type="button" data-view="settings">Nastavení</button>
+</nav>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+"use strict";
+const AREAS=[{id:"SKLAD",label:"Sklad",c:"--sklad"},{id:"OBCHOD",label:"Obchod",c:"--obchod"},{id:"MICHARNA",label:"Míchárna",c:"--michr"}];
+const AREA_LABEL=Object.fromEntries(AREAS.map(a=>[a.id,a.label]));
+const store={get(k,d){try{const v=localStorage.getItem("inv."+k);return v==null?d:JSON.parse(v)}catch(e){return d}},
+  set(k,v){try{localStorage.setItem("inv."+k,JSON.stringify(v))}catch(e){}}};
+
+/* ---------- connection settings (from the link) ---------- */
+const URLP=new URLSearchParams(location.search);
+let API=URLP.get("api")||store.get("api","");
+let KEY=URLP.get("k")||store.get("k","");
+if(URLP.get("api")){store.set("api",API);store.set("k",KEY)}
+
+const S={
+  view:"scan", area:store.get("area","OBCHOD"), name:store.get("name",""), fast:store.get("fast",false),
+  dev:store.get("dev",null),
+  conn:API?"connecting":"none", lastOk:0,
+  gen:store.get("gen",null), since:0, agg:new Map(), seen:new Set(),
+  pending:store.get("pending",[]),
+  catState:"loading", catalog:[], byCode:new Map(), byCislo:new Map(),
+  cam:false, current:null, choices:null, results:null, notFound:null, query:"",
+  ovFilter:"diff", ovArea:"ALL", ovQuery:"", editName:false,
+};
+if(!S.dev){S.dev=Math.random().toString(36).slice(2,8);store.set("dev",S.dev)}
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm=s=>String(s??"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().trim();
+const fmt=n=>{n=Math.round(n*1000)/1000;return n.toLocaleString("cs-CZ")};
+const parseQ=v=>{const n=parseFloat(String(v).replace(",",".").replace(/\s/g,""));return isFinite(n)?n:NaN};
+let toastT;function toast(t){const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,2200)}
+function savePending(){store.set("pending",S.pending)}
+
+/* ---------- server ---------- */
+async function apiGet(params){
+  const u=API+(API.includes("?")?"&":"?")+new URLSearchParams(Object.assign({k:KEY},params));
+  const r=await fetch(u,{cache:"no-store"}); return r.json();
+}
+async function apiPost(body){
+  const r=await fetch(API,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(Object.assign({k:KEY},body))});
+  return r.json();
+}
+function connOk(){if(S.conn!=="ok"){S.conn="ok";renderStatus()}S.lastOk=Date.now()}
+function connFail(res){
+  const was=S.conn;
+  if(res&&res.err==="key")S.conn="key"; else S.conn="offline";
+  if(was!==S.conn)renderStatus();
+}
+function newGen(gen){
+  if(S.gen&&S.gen!==gen){toast("Začala nová inventura");}
+  if(S.gen!==gen){S.pending=[];savePending();S.agg=new Map();S.seen=new Set();S.since=0;S.gen=gen;store.set("gen",gen);S.current=null;render()}
+}
+
+/* ---------- catalog ---------- */
+function setCatalog(rows){
+  S.catalog=rows; S.byCode=new Map(); S.byCislo=new Map();
+  rows.forEach((r,i)=>{
+    const [n,ean,cis]=r;
+    if(cis&&!S.byCislo.has(cis))S.byCislo.set(cis,i);
+    for(const k of [ean,cis]){if(!k)continue;const key=String(k).trim().toLowerCase();const a=S.byCode.get(key);if(a){if(!a.includes(i))a.push(i)}else S.byCode.set(key,[i])}
+    r._n=norm(n+" "+cis+" "+(ean||""));
+  });
+}
+async function loadCatalog(){
+  const cached=store.get("catalog",null);
+  if(cached&&!S.catalog.length){setCatalog(cached);S.catState="cached";render()}
+  try{
+    const res=await apiGet({a:"catalog"});
+    if(!res.ok){connFail(res);if(res.err&&res.err!=="key")S.catError=res.err;render();return}
+    connOk(); newGen(res.gen);
+    setCatalog(res.rows); S.catState=res.rows.length?"ok":"empty"; S.catError=null;
+    store.set("catalog",res.rows.map(r=>r.slice(0,4)));
+  }catch(e){connFail();if(!S.catalog.length)S.catState="error"}
+  render();
+}
+function lookupCode(code){
+  const c=String(code).trim().toLowerCase(); if(!c)return [];
+  const tries=[c]; if(/^\d+$/.test(c)){tries.push("0"+c);if(c.startsWith("0"))tries.push(c.slice(1))}
+  for(const t of tries){const a=S.byCode.get(t);if(a)return a}
+  return [];
+}
+function searchText(q){
+  const toks=norm(q).split(/\s+/).filter(Boolean); if(!toks.length)return [];
+  const out=[]; for(let i=0;i<S.catalog.length&&out.length<40;i++){const r=S.catalog[i];if(toks.every(t=>r._n.includes(t)))out.push(i)}
+  return out;
+}
+const itemRow=key=>{const i=S.byCislo.get(key);return i==null?null:S.catalog[i]};
+const itemName=key=>{const r=itemRow(key);return r?r[0]:key};
+
+/* ---------- counts: server log + pending entries ---------- */
+function applyEntry(map,e){
+  const id=e.area+"~"+e.dev; let o=map.get(id);
+  if(!o){o={area:e.area,name:"",items:{}};map.set(id,o)}
+  if(e.name)o.name=e.name;
+  const it=o.items[e.cis]||(o.items[e.cis]={q:0,t:0});
+  it.q=Math.round((it.q+e.d)*1000)/1000; if(e.t>it.t)it.t=e.t;
+  if(e.cis.startsWith("?")){if(e.nm)it.n=e.nm;if(e.note)it.c=e.note}
+}
+let pollBusy=false;
+async function poll(){
+  if(!API||pollBusy)return; pollBusy=true;
+  try{
+    const res=await apiGet({a:"log",since:S.since});
+    if(!res.ok){connFail(res);return}
+    connOk();
+    if(res.gen!==S.gen){newGen(res.gen);pollBusy=false;return poll()}
+    if(res.reset){S.agg=new Map();S.seen=new Set();S.since=0;pollBusy=false;return poll()}
+    if(res.rows.length){
+      for(const r of res.rows){const [t,area,name,cis,d,dev,id,note,nm]=r;applyEntry(S.agg,{t,area,name,cis,d,dev,note,nm});if(id)S.seen.add(id)}
+      S.since=res.n;
+      const before=S.pending.length; S.pending=S.pending.filter(p=>!S.seen.has(p.id)); if(S.pending.length!==before)savePending();
+      render();
+    } else S.since=res.n;
+  }catch(e){connFail()}
+  finally{pollBusy=false}
+}
+let flushBusy=false;
+async function flush(){
+  if(!API||flushBusy)return;
+  const now=Date.now();
+  const batch=S.pending.filter(p=>!S.seen.has(p.id)&&(!p.sent||now-p.sent>30000)).slice(0,40);
+  if(!batch.length)return;
+  flushBusy=true;
+  try{
+    const res=await apiPost({a:"add",gen:S.gen,entries:batch.map(({sent,...e})=>e)});
+    if(!res.ok){connFail(res);return}
+    connOk();
+    if(res.stale){newGen(res.gen);render();return}
+    const ok=new Set(res.saved); S.pending.forEach(p=>{if(ok.has(p.id))p.sent=Date.now()}); savePending();
+    flushBusy=false; poll();
+  }catch(e){connFail()}
+  finally{flushBusy=false;renderStatus()}
+}
+function itemsOf(id){
+  const base=S.agg.get(id)?.items||{};
+  const pend=S.pending.filter(p=>!S.seen.has(p.id)&&p.area+"~"+p.dev===id);
+  if(!pend.length)return base;
+  const c=Object.assign({},base);
+  for(const p of pend){const it=Object.assign({q:0,t:0},c[p.cis]);it.q=Math.round((it.q+p.d)*1000)/1000;if(p.t>it.t)it.t=p.t;if(p.cis.startsWith("?")){it.n=p.nm;it.c=p.note}c[p.cis]=it}
+  return c;
+}
+function allDocIds(){const ids=new Set(S.agg.keys());S.pending.forEach(p=>ids.add(p.area+"~"+p.dev));return [...ids]}
+const docId=a=>a+"~"+S.dev;
+const areaOf=id=>id.split("~")[0];
+const isMine=id=>id.endsWith("~"+S.dev);
+function docName(id){return isMine(id)?S.name:(S.agg.get(id)?.name||"bez jména")}
+function totals(){
+  const t=new Map();
+  for(const id of allDocIds()){
+    const a=areaOf(id), it=itemsOf(id);
+    for(const k in it){const q=+it[k].q||0;if(!q&&!t.has(k))continue;let o=t.get(k);if(!o){o={ALL:0,SKLAD:0,OBCHOD:0,MICHARNA:0};t.set(k,o)}o.ALL+=q;o[a]=(o[a]||0)+q;if(it[k].n)o.n=it[k].n}
+  }
+  return t;
+}
+function breakdown(key){
+  const out=[];for(const id of allDocIds()){const it=itemsOf(id)[key];if(it&&+it.q)out.push({area:areaOf(id),q:+it.q,name:docName(id)||"bez jména",me:isMine(id)})}
+  return out;
+}
+const myQ=key=>+(itemsOf(docId(S.area))[key]?.q)||0;
+
+function addEntry(key,d,extra){
+  const e={id:uid(),area:S.area,name:S.name,dev:S.dev,cis:key,d:Math.round(d*1000)/1000,t:Date.now(),nm:extra&&extra.n||itemName(key),note:extra&&extra.c||""};
+  S.pending.push(e); savePending(); flush();
+}
+function canCount(){
+  if(!API){toast("Stránka není propojená s tabulkou.");return false}
+  if(!S.name){S.editName=true;S.view="scan";render();toast("Nejdřív zadejte, kdo počítá.");return false}
+  return true;
+}
+function addQ(key,d,extra){
+  if(!canCount())return false;
+  const cur=myQ(key); if(cur+d<0)d=-cur; if(!d)return false;
+  addEntry(key,d,extra);
+  toast(`${d>=0?"+":""}${fmt(d)} · ${extra&&extra.n||itemName(key)}`);
+  return true;
+}
+function setQ(key,q){
+  if(!canCount())return;
+  const d=q-myQ(key); if(d)addEntry(key,d);
+  toast(`Můj počet nastaven na ${fmt(q)}`);
+}
+
+/* ---------- scanning ---------- */
+let zxingP=null, zxReader=null, zxReaderHard=null;
+function loadZXing(){
+  if(window.ZXing)return Promise.resolve();
+  if(!zxingP)zxingP=new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js";s.onload=res;s.onerror=()=>{zxingP=null;rej(new Error("load"))};document.head.appendChild(s)});
+  return zxingP;
+}
+function zxReaderFor(hard){
+  const Z=window.ZXing; let r=hard?zxReaderHard:zxReader; if(r)return r;
+  const hints=new Map(); if(hard)hints.set(Z.DecodeHintType.TRY_HARDER,true);
+  hints.set(Z.DecodeHintType.POSSIBLE_FORMATS,[Z.BarcodeFormat.EAN_13,Z.BarcodeFormat.EAN_8,Z.BarcodeFormat.UPC_A,Z.BarcodeFormat.UPC_E,Z.BarcodeFormat.CODE_128,Z.BarcodeFormat.CODE_39,Z.BarcodeFormat.ITF]);
+  r=new Z.MultiFormatReader(); r.setHints(hints); if(hard)zxReaderHard=r; else zxReader=r; return r;
+}
+function zxDecode(cv,hard){
+  const ctx=cv.getContext("2d",{willReadFrequently:true}),w=cv.width,h=cv.height,d=ctx.getImageData(0,0,w,h).data;
+  const lum=new Uint8ClampedArray(w*h);for(let i=0,j=0;i<w*h;i++,j+=4)lum[i]=(d[j]*299+d[j+1]*587+d[j+2]*114)/1000;
+  const Z=window.ZXing;
+  try{return zxReaderFor(hard).decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.RGBLuminanceSource(lum,w,h)))).getText()}
+  catch(e){return null}
+}
+const CAM={stream:null,track:null,det:null,timer:0,busy:false,paused:false,last:"",lastT:0,torch:false,frame:0,cv:null,audio:null};
+function beep(){
+  try{const a=CAM.audio;if(!a)return;const o=a.createOscillator(),g=a.createGain();o.frequency.value=1900;g.gain.value=.12;o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+.08)}catch(e){}
+  try{navigator.vibrate&&navigator.vibrate(60)}catch(e){}
+}
+async function camStart(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast("Tento prohlížeč neumí kameru. Otevřete stránku v Safari nebo Chrome.");return}
+  try{CAM.audio=CAM.audio||new (window.AudioContext||window.webkitAudioContext)();CAM.audio.resume&&CAM.audio.resume()}catch(e){}
+  try{
+    CAM.stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}}});
+  }catch(e){toast(e&&e.name==="NotAllowedError"?"Přístup ke kameře je zakázaný. Povolte ho v nastavení prohlížeče.":"Kameru se nepodařilo zapnout.");return}
+  S.cam=true; CAM.paused=false; CAM.last="";
+  const v=$("#video"); v.srcObject=CAM.stream; $("#cambox").hidden=false; render();
+  try{await v.play()}catch(e){}
+  CAM.track=CAM.stream.getVideoTracks()[0];
+  try{const caps=CAM.track.getCapabilities&&CAM.track.getCapabilities();$("#torchBtn").hidden=!(caps&&caps.torch)}catch(e){}
+  CAM.det=null;
+  if("BarcodeDetector" in window){try{const f=await BarcodeDetector.getSupportedFormats();const want=["ean_13","ean_8","upc_a","upc_e","code_128","code_39","itf"].filter(x=>f.includes(x));if(want.length)CAM.det=new BarcodeDetector({formats:want})}catch(e){}}
+  if(!CAM.det){try{await loadZXing()}catch(e){toast("Nepodařilo se načíst čtečku kódů. Zkontrolujte internet.");camStop();return}}
+  setCamText("Namiřte na čárový kód");
+  clearTimeout(CAM.timer); tick();
+}
+function camStop(){
+  clearTimeout(CAM.timer); S.cam=false;
+  if(CAM.stream)CAM.stream.getTracks().forEach(t=>t.stop());
+  CAM.stream=null; CAM.track=null; CAM.torch=false;
+  $("#video").srcObject=null; $("#cambox").hidden=true; render();
+}
+function setCamText(t){$("#camres").textContent=t}
+function camPause(p){CAM.paused=p;$("#camPaused").hidden=!p}
+function grabFrame(v,rot){
+  const vw=v.videoWidth,vh=v.videoHeight; if(!vw)return null;
+  const cv=CAM.cv||(CAM.cv=document.createElement("canvas")); const ctx=cv.getContext("2d",{willReadFrequently:true});
+  if(!rot){
+    const cw=vw*.9,ch=vh*.5,s=Math.min(1,900/cw);
+    cv.width=Math.round(cw*s);cv.height=Math.round(ch*s);
+    ctx.drawImage(v,(vw-cw)/2,(vh-ch)/2,cw,ch,0,0,cv.width,cv.height);
+  }else{
+    const s=Math.min(1,800/Math.max(vw,vh)),w=Math.round(vw*s),h=Math.round(vh*s);
+    cv.width=h;cv.height=w;ctx.setTransform(1,0,0,1,0,0);ctx.translate(h,0);ctx.rotate(Math.PI/2);ctx.drawImage(v,0,0,w,h);ctx.setTransform(1,0,0,1,0,0);
+  }
+  return cv;
+}
+async function tick(){
+  if(!S.cam)return;
+  const v=$("#video");
+  if(!CAM.paused&&!CAM.busy&&v.readyState>=2){
+    CAM.busy=true; let code=null;
+    try{
+      if(CAM.det){const r=await CAM.det.detect(v);if(r&&r.length)code=r[0].rawValue}
+      else{CAM.frame++;const cv=grabFrame(v,CAM.frame%4===3);if(cv)code=zxDecode(cv,false)}
+    }catch(e){}
+    CAM.busy=false;
+    if(code&&S.cam)onCamCode(code);
+  }
+  CAM.timer=setTimeout(tick,CAM.det?90:120);
+}
+function onCamCode(code){
+  const now=Date.now();
+  if(code===CAM.last&&now-CAM.lastT<1500){CAM.lastT=now;return}
+  CAM.last=code;CAM.lastT=now;
+  beep(); const box=$("#cambox"); box.classList.remove("hit"); void box.offsetWidth; box.classList.add("hit");
+  const hits=lookupCode(code);
+  if(S.fast&&hits.length===1){
+    const key=S.catalog[hits[0]][2];
+    if(addQ(key,1)){S.current=key;S.choices=S.results=S.notFound=null;setCamText(`+1 · ${itemName(key)} (můj počet ${fmt(myQ(key))})`);render()}
+    return;
+  }
+  camPause(true);
+  setCamText(hits.length===1?itemName(S.catalog[hits[0]][2]):hits.length?"Kód má víc položek, vyberte níže":"Kód "+code+" není v seznamu");
+  handleCode(code,{fromScan:true,fromCam:true});
+}
+async function decodeFile(file){
+  const img=await createImageBitmap(file).catch(async()=>{const u=URL.createObjectURL(file);const im=new Image();im.src=u;await im.decode();return im});
+  if("BarcodeDetector" in window){try{const r=await new BarcodeDetector().detect(img);if(r&&r[0])return r[0].rawValue}catch(e){}}
+  await loadZXing();
+  for(const [max,rot] of [[1400,false],[1400,true],[900,false],[900,true],[2000,false]]){
+    const s=Math.min(1,max/Math.max(img.width,img.height)),w=Math.round(img.width*s),h=Math.round(img.height*s);
+    const cv=document.createElement("canvas");cv.width=rot?h:w;cv.height=rot?w:h;const ctx=cv.getContext("2d");
+    if(rot){ctx.translate(h,0);ctx.rotate(Math.PI/2)}ctx.drawImage(img,0,0,w,h);
+    const r=zxDecode(cv,true);if(r)return r;
+    await new Promise(r=>setTimeout(r,0));
+  }
+  return null;
+}
+
+/* ---------- actions ---------- */
+function handleCode(raw,{fromScan,fromCam}={}){
+  const code=String(raw||"").trim(); S.query=code; S.resetCode=true; S.choices=null;S.results=null;S.notFound=null;
+  if(!code){S.current=null;render();return}
+  const hits=lookupCode(code);
+  if(hits.length===1){
+    S.current=S.catalog[hits[0]][2]; S.query="";
+    if(S.fast&&fromScan&&!fromCam){addQ(S.current,1);render();focusCode();return}
+    render(); if(!S.cam)focusQty(); scrollToCard(); return;
+  }
+  if(hits.length>1){S.choices=hits;S.current=null;render();return}
+  if(/^\d{6,14}$/.test(code)){S.notFound=code;S.current=null;render();return}
+  S.results=searchText(code);S.current=null;
+  if(!S.results.length)S.notFound=code;
+  render();
+}
+function pick(cis){S.current=cis;S.choices=null;S.results=null;S.notFound=null;S.query="";render();if(!S.cam)focusQty();scrollToCard()}
+function afterSave(){S.renderedCard=null;if(S.cam){camPause(false);setCamText("Namiřte na další kód");S.current=null;render();window.scrollTo({top:0,behavior:"smooth"})}else{render();focusCode()}}
+function focusQty(){requestAnimationFrame(()=>{const q=$("#qty");if(q){q.focus();q.select()}})}
+function focusCode(){requestAnimationFrame(()=>{const c=$("#code");if(c&&!("ontouchstart" in window))c.focus()})}
+function scrollToCard(){requestAnimationFrame(()=>{const c=$("#card");if(c&&S.cam)c.scrollIntoView({block:"nearest",behavior:"smooth"})})}
+
+/* ---------- rendering ---------- */
+function render(){
+  document.body.dataset.area=S.area;
+  $("#whoName").textContent=S.name||"nezadáno";
+  $("#areas").innerHTML=AREAS.map(a=>`<button type="button" data-area="${a.id}" aria-pressed="${a.id===S.area}"><i style="background:var(${a.c})"></i>${a.label}</button>`).join("");
+  document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.view===S.view?"page":"false"));
+  $("#cambox").hidden=!(S.cam&&S.view==="scan");
+  renderStatus();
+  const ae=document.activeElement, keep=ae&&ae.id; let sel=null; try{sel=keep&&ae.selectionStart}catch(e){}
+  const vals={}, prevCard=S.renderedCard;
+  document.querySelectorAll("#main input[type=text],#main input[type=search],#main input[type=url]").forEach(i=>{if(i.id)vals[i.id]=i.value});
+  if(S.current!==prevCard)delete vals.qty;
+  if(S.resetCode){delete vals.code;S.resetCode=false}
+  $("#main").innerHTML=!API?viewSetup():S.view==="scan"?viewScan():S.view==="overview"?viewOverview():viewSettings();
+  for(const id in vals){const el=document.getElementById(id);if(el)el.value=vals[id]}
+  const card=$("#card");if(card&&S.current===prevCard)card.classList.remove("flash");
+  S.renderedCard=S.current;
+  if(keep){const el=document.getElementById(keep);if(el&&el.tagName==="INPUT"){el.focus({preventScroll:true});try{if(sel!=null)el.setSelectionRange(sel,sel)}catch(e){}}}
+  if(S.view==="settings"&&API)drawQR();
+}
+function renderStatus(){
+  const m=[]; const wait=S.pending.filter(p=>!S.seen.has(p.id)).length;
+  if(S.conn==="key")m.push(`<div class="banner bad">Tabulka odmítla klíč v odkazu. Otevřete znovu odkaz z tabulky (menu Inventura → Odkaz pro telefony).</div>`);
+  else if(S.conn==="offline")m.push(`<div class="banner warn">Bez spojení s tabulkou.${wait?` ${wait} ${wait===1?"zápis čeká":wait<5?"zápisy čekají":"zápisů čeká"} v telefonu a odešle se samo.`:""}</div>`);
+  if(S.catState==="empty")m.push(`<div class="banner warn">V tabulce chybí seznam zboží. Vložte export z Cézara do listu „Katalog“.</div>`);
+  if(S.catError)m.push(`<div class="banner bad">${esc(S.catError)}</div>`);
+  $("#status").innerHTML=m.join("");
+  $("#status").style.paddingTop=m.length?"12px":"0";
+}
+function viewSetup(){
+  return `<section class="panel"><h2>Propojení s tabulkou</h2>
+  <p style="margin:0">Stránka ještě neví, kam zapisovat. Otevřete odkaz, který zobrazí Google tabulka v menu <b>Inventura → Odkaz pro telefony</b>, nebo naskenujte QR kód z jiného telefonu. Případně odkaz vložte sem:</p>
+  <form class="scanrow" id="setupForm"><input type="url" id="setupIn" placeholder="https://…?api=…&k=…"><button class="btn primary" type="submit">Připojit</button></form></section>`;
+}
+function viewScan(){
+  let h="";
+  if(S.editName||!S.name)h+=nameForm();
+  h+=`<section class="panel">
+    ${S.cam?"":`<button class="btn area big" type="button" id="camStart">Skenovat kamerou</button>`}
+    <form class="scanrow" id="codeForm" autocomplete="off">
+      <input type="search" id="code" inputmode="search" placeholder="EAN, číslo zboží nebo název" value="${esc(S.query)}" aria-label="Kód nebo název zboží" enterkeyhint="search">
+      <button class="btn" type="submit">Hledat</button>
+    </form>
+    <label class="toggle"><input type="checkbox" id="fast" ${S.fast?"checked":""}> Každé načtení = +1 ks (bez potvrzování)</label>
+  </section>`;
+  if(S.choices)h+=`<section class="panel" id="card"><h2>Tento kód má víc položek, vyberte</h2><div class="list">${S.choices.map(choiceLi).join("")}</div></section>`;
+  if(S.results&&S.results.length)h+=`<section class="panel"><h2>Nalezeno ${S.results.length>=40?"40+":S.results.length}</h2><div class="list">${S.results.map(choiceLi).join("")}</div></section>`;
+  if(S.notFound)h+=`<section class="panel" id="card"><h2>Nenalezeno</h2><p style="margin:0">„<span class="code">${esc(S.notFound)}</span>“ v seznamu zboží není. Zkuste napsat část názvu, nebo ho zapište jako neznámé zboží a dořešíte ho v Cézaru.</p>
+    <form class="scanrow" id="unkForm"><input type="text" id="unkName" placeholder="Popis zboží"><button class="btn" type="submit">Zapsat 1 ks</button></form>
+    ${S.cam?`<button class="btn" type="button" id="resume">Skenovat dál</button>`:""}</section>`;
+  if(S.current)h+=itemCard(S.current);
+  h+=recentPanel();
+  return h;
+}
+function choiceLi(i){const r=S.catalog[i];const t=totals().get(r[2]);return `<button type="button" class="li" data-pick="${esc(r[2])}"><span class="n">${esc(r[0])}</span><span class="q">${t?fmt(t.ALL):"–"}</span><span class="s">${esc(r[2])}${r[1]?" · "+esc(r[1]):""} · Cézar ${fmt(+r[3]||0)}</span></button>`}
+function itemCard(key){
+  const r=itemRow(key); const t=totals().get(key)||{ALL:0}; const me=myQ(key); const here=t[S.area]||0;
+  const stav=r?(+r[3]||0):0; const diff=t.ALL-stav; const bd=breakdown(key);
+  const unk=key.startsWith("?");
+  return `<section class="panel flash" id="card">
+    <div><p class="item-name">${esc(r?r[0]:unk?(t.n||"Neznámé zboží"):key)}</p><div class="code">${esc(unk?"kód "+key.slice(1):key)}${r&&r[1]?" · EAN "+esc(r[1]):""}</div></div>
+    <div class="stats">
+      <div class="stat"><span>V Cézaru</span><b>${unk?"–":fmt(stav)}</b></div>
+      <div class="stat hl"><span>${AREA_LABEL[S.area]}</span><b>${fmt(here)}</b></div>
+      <div class="stat"><span>Všude</span><b class="${unk?"":diff>0?"pos":diff<0?"neg":""}">${fmt(t.ALL)}</b></div>
+    </div>
+    ${bd.length?`<div class="hint">${bd.map(b=>`${esc(AREA_LABEL[b.area])} · ${esc(b.name)}${b.me?" (já)":""}: <b>${fmt(b.q)}</b>`).join(" &nbsp;|&nbsp; ")}</div>`:""}
+    <div class="hint">Můj počet v úseku ${esc(AREA_LABEL[S.area])}: <b>${fmt(me)}</b></div>
+    <form id="qtyForm" style="display:flex;flex-direction:column;gap:8px">
+      <div class="qty"><button type="button" class="btn" data-step="-1" aria-label="Méně">−</button><input type="text" inputmode="decimal" id="qty" value="1" aria-label="Počet kusů" enterkeyhint="done"><button type="button" class="btn" data-step="1" aria-label="Více">+</button></div>
+      <div class="actions"><button class="btn area" type="submit">Přičíst</button><button class="btn" type="button" id="setBtn">Nastavit můj počet</button></div>
+      ${S.cam?`<button class="btn" type="button" id="resume">Zrušit a skenovat dál</button>`:""}
+    </form>
+  </section>`;
+}
+function recentPanel(){
+  const it=itemsOf(docId(S.area)); const ks=Object.keys(it).filter(k=>+it[k].q>0).sort((a,b)=>it[b].t-it[a].t);
+  const total=ks.reduce((s,k)=>s+(+it[k].q),0);
+  if(!ks.length)return `<section class="panel"><h2>Moje položky · ${esc(AREA_LABEL[S.area])}</h2><p class="hint" style="margin:0">Zatím nic. Zapněte kameru, napište EAN, nebo hledejte podle názvu. Vybraný úsek nahoře určuje, kam se počet zapíše.</p></section>`;
+  return `<section class="panel"><div class="row" style="justify-content:space-between"><h2>Moje položky · ${esc(AREA_LABEL[S.area])}</h2><span class="hint">${ks.length} položek · ${fmt(total)} ks</span></div>
+  <div class="list">${ks.slice(0,25).map(k=>`<button type="button" class="li" data-pick="${esc(k)}"><span class="n">${esc(k.startsWith("?")?(it[k].n||"Neznámé zboží"):itemName(k))}</span><span class="q">${fmt(+it[k].q)}</span><span class="s">${esc(k.startsWith("?")?"neznámé · "+k.slice(1):k)} · ${new Date(it[k].t).toLocaleTimeString("cs-CZ",{hour:"2-digit",minute:"2-digit"})}</span></button>`).join("")}</div>
+  ${ks.length>25?`<p class="hint" style="margin:0">Zobrazeno posledních 25. Všechny najdete v Přehledu.</p>`:""}</section>`;
+}
+function nameForm(){
+  return `<section class="panel"><h2>Kdo počítá na tomto telefonu</h2>
+  <form class="scanrow" id="nameForm"><input type="text" id="nameIn" placeholder="Jméno" value="${esc(S.name)}" autocomplete="given-name"><button class="btn primary" type="submit">Uložit</button></form>
+  <p class="hint" style="margin:0">Jméno se zapisuje k načteným položkám, aby bylo vidět, kdo co počítal.</p></section>`;
+}
+function overviewRows(){
+  const t=totals(); const rows=[]; const a=S.ovArea; const q=norm(S.ovQuery);
+  S.catalog.forEach(r=>{
+    const o=t.get(r[2]); const cnt=o?(a==="ALL"?o.ALL:(o[a]||0)):0; const stav=+r[3]||0; const all=o?o.ALL:0;
+    let ok;
+    if(S.ovFilter==="diff")ok=(all>0||stav>0)&&all!==stav&&(a==="ALL"||cnt>0);
+    else if(S.ovFilter==="counted")ok=cnt>0;
+    else ok=all<=0&&stav>0;
+    if(ok&&q&&!r._n.includes(q))ok=false;
+    if(ok)rows.push({r,cnt,all,stav});
+  });
+  for(const [k,o] of t){if(k.startsWith("?")&&S.ovFilter!=="missing"&&o.ALL>0&&(a==="ALL"||o[a]>0)&&(!q||norm((o.n||"")+" "+k).includes(q)))rows.push({r:[o.n||"Neznámé zboží",k.slice(1),k,0],cnt:a==="ALL"?o.ALL:o[a],all:o.ALL,stav:0,unk:true})}
+  if(S.ovFilter==="diff")rows.sort((x,y)=>Math.abs(y.all-y.stav)-Math.abs(x.all-x.stav));
+  return rows;
+}
+function viewOverview(){
+  const t=totals(); const sum={SKLAD:[0,0],OBCHOD:[0,0],MICHARNA:[0,0]}; let items=0,pcs=0;
+  for(const [k,o] of t){if(o.ALL>0){items++;pcs+=o.ALL}for(const a of AREAS)if(o[a.id]>0){sum[a.id][0]++;sum[a.id][1]+=o[a.id]}}
+  const people=new Map(); for(const id of allDocIds()){const nm=docName(id)||"bez jména";const n=Object.values(itemsOf(id)).filter(x=>+x.q>0).length;people.set(nm,(people.get(nm)||0)+n)}
+  const rows=overviewRows(), shown=rows.slice(0,200);
+  const filt=[["diff","Rozdíly proti Cézaru"],["missing","Nespočítané se stavem"],["counted","Spočítané"]];
+  const ppl=[...people].filter(p=>p[1]>0);
+  return `<section class="panel"><h2>Stav inventury</h2>
+    <div class="stats"><div class="stat"><span>Položek</span><b>${fmt(items)}</b></div><div class="stat"><span>Kusů</span><b>${fmt(pcs)}</b></div><div class="stat"><span>V katalogu</span><b>${fmt(S.catalog.length)}</b></div></div>
+    <div class="areabar">${AREAS.map(a=>`<i class="dot" style="background:var(${a.c})"></i><span>${a.label}</span><span class="num">${fmt(sum[a.id][0])} pol. · ${fmt(sum[a.id][1])} ks</span>`).join("")}</div>
+    <div class="hint">Počítali: ${ppl.length?ppl.map(([n,c])=>`${esc(n)} (${c})`).join(", "):"zatím nikdo"}</div>
+    <button class="btn primary big" type="button" id="exportBtn" ${S.catalog.length?"":"disabled"}>Stáhnout výsledek pro Cézar (.xlsx)</button>
+  </section>
+  <section class="panel"><div class="chips">${filt.map(([k,l])=>`<button type="button" class="chip" data-ovf="${k}" aria-pressed="${S.ovFilter===k}">${l}</button>`).join("")}</div>
+    <div class="chips"><button type="button" class="chip" data-ova="ALL" aria-pressed="${S.ovArea==="ALL"}">Všechny úseky</button>${AREAS.map(a=>`<button type="button" class="chip" data-ova="${a.id}" aria-pressed="${S.ovArea===a.id}">${a.label}</button>`).join("")}</div>
+    <input type="search" id="ovq" placeholder="Filtrovat podle názvu nebo kódu" value="${esc(S.ovQuery)}" aria-label="Filtr">
+    <div class="hint">${rows.length>200?`Zobrazeno 200 z ${fmt(rows.length)}`:`${fmt(rows.length)} položek`}. ${S.ovFilter==="diff"?"Seřazeno od největšího rozdílu. Vpravo: spočítáno / Cézar.":S.ovFilter==="missing"?"Zboží, které Cézar eviduje, ale nikdo ho zatím nenačetl.":""}</div>
+    <div class="list">${shown.map(x=>{const d=x.all-x.stav;return `<button type="button" class="li" data-pick="${esc(x.r[2])}" data-go="scan"><span class="n">${esc(x.r[0])}</span><span class="q">${fmt(S.ovArea==="ALL"?x.all:x.cnt)}<span class="hint"> / ${fmt(x.stav)}</span></span><span class="s">${esc(x.unk?"neznámé · "+x.r[1]:x.r[2])}${S.ovFilter!=="counted"&&d&&!x.unk?` · <b class="${d>0?"pos":"neg"}">${d>0?"+":""}${fmt(d)}</b>`:""}</span></button>`}).join("")}</div>
+  </section>`;
+}
+function shareLink(){return location.origin+location.pathname+"?api="+encodeURIComponent(API)+"&k="+encodeURIComponent(KEY)}
+function viewSettings(){
+  const wait=S.pending.filter(p=>!S.seen.has(p.id)).length;
+  let h=nameForm();
+  h+=`<section class="panel"><h2>Připojit další telefon</h2>
+    <p class="hint" style="margin:0">Na druhém telefonu otevřete fotoaparát a naskenujte tento kód. Otevře se inventura propojená se stejnou tabulkou.</p>
+    <div id="qr"></div>
+    <button class="btn" type="button" id="copyLink">Zkopírovat odkaz</button>
+    <p class="hint" style="margin:0">Odkaz obsahuje klíč k zápisu, neposílejte ho mimo firmu.</p></section>`;
+  h+=`<section class="panel"><h2>Spojení</h2><dl class="kv">
+    <dt>Tabulka</dt><dd>${S.conn==="ok"?"připojeno":S.conn==="offline"?"bez spojení":S.conn==="key"?"neplatný klíč":"připojuji…"}</dd>
+    <dt>Seznam zboží</dt><dd>${fmt(S.catalog.length)} položek</dd>
+    <dt>Zápisů v tabulce</dt><dd>${fmt(S.since)}</dd>
+    <dt>Čeká na odeslání</dt><dd>${fmt(wait)}</dd>
+    <dt>Toto zařízení</dt><dd class="code">${esc(S.dev)}</dd></dl>
+    <button class="btn" type="button" id="reloadCat">Načíst seznam zboží znovu</button>
+    <p class="hint" style="margin:0">Seznam zboží se mění v Google tabulce v listu „Katalog“. Novou inventuru spustíte tamtéž v menu Inventura.</p></section>`;
+  h+=`<section class="panel"><h2>Jak počítat</h2><ol class="steps">
+    <li>Nahoře vyberte úsek, ve kterém právě počítáte.</li>
+    <li>Klepněte na <b>Skenovat kamerou</b> a namiřte telefon na čárový kód. Po pípnutí se ukáže zboží.</li>
+    <li>Zadejte počet kusů a dejte <b>Přičíst</b>. Kamera pak sama čeká na další kód.</li>
+    <li>Se zapnutým „Každé načtení = +1 ks“ se každý kód rovnou přičte, stačí přejíždět po kusech.</li>
+    <li>Spleťte-li se, otevřete položku a dejte <b>Nastavit můj počet</b> se správným číslem (0 položku odebere).</li>
+    <li>Bez signálu se zápisy ukládají v telefonu a odešlou se samy, jakmile bude spojení.</li>
+  </ol></section>`;
+  return h;
+}
+let qrFor="";
+function drawQR(){
+  const el=$("#qr"); if(!el||!window.QRCode)return;
+  el.innerHTML=""; try{new QRCode(el,{text:shareLink(),width:220,height:220,correctLevel:QRCode.CorrectLevel.M})}catch(e){el.hidden=true}
+}
+
+/* ---------- export ---------- */
+function exportXlsx(){
+  if(!window.XLSX){toast("Knihovna pro Excel se nenačetla.");return}
+  const t=totals(); const wb=XLSX.utils.book_new();
+  const sum=[["Název zboží","Číslo zboží","Součet inventur"]];
+  S.catalog.forEach(r=>{const o=t.get(r[2]);sum.push([r[0],r[2],o?o.ALL:0])});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),"Součet inventur");
+  for(const a of AREAS){
+    const rows=[["Název zboží","Čárový kód","Číslo zboží","Skutečný stav","Stav na skladě"]];
+    S.catalog.forEach(r=>{const o=t.get(r[2]);if(o&&o[a.id]>0)rows.push([r[0],r[1]||r[2],r[2],o[a.id],+r[3]||0])});
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),a.label);
+  }
+  const diff=[["Název zboží","Číslo zboží","Čárový kód","Stav na skladě","Spočítáno","Rozdíl"]];
+  S.catalog.map(r=>{const o=t.get(r[2]);const c=o?o.ALL:0;const s=+r[3]||0;return [r[0],r[2],r[1]||"",s,c,c-s]}).filter(x=>x[5]!==0&&(x[3]>0||x[4]>0)).sort((a,b)=>Math.abs(b[5])-Math.abs(a[5])).forEach(x=>diff.push(x));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(diff),"Rozdíly");
+  const unk=[...t].filter(([k,o])=>k.startsWith("?")&&o.ALL>0);
+  if(unk.length){const u=[["Popis","Načtený kód","Sklad","Obchod","Míchárna","Celkem"]];unk.forEach(([k,o])=>u.push([o.n||"",k.slice(1),o.SKLAD,o.OBCHOD,o.MICHARNA,o.ALL]));XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(u),"Mimo katalog")}
+  const d=new Date();
+  XLSX.writeFile(wb,`Inventura-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}.xlsx`);
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.area){S.area=b.dataset.area;store.set("area",S.area);render();return}
+  if(b.dataset.view){S.view=b.dataset.view;if(S.view!=="scan"&&S.cam)camStop();render();window.scrollTo(0,0);return}
+  if(b.dataset.pick){if(b.dataset.go)S.view="scan";pick(b.dataset.pick);if(!S.cam)window.scrollTo(0,0);return}
+  if(b.dataset.step){const q=$("#qty");const v=parseQ(q.value)||0;q.value=fmt(Math.max(0,v+ +b.dataset.step));return}
+  if(b.dataset.ovf){S.ovFilter=b.dataset.ovf;render();return}
+  if(b.dataset.ova){S.ovArea=b.dataset.ova;render();return}
+  switch(b.id){
+    case "whoBtn":S.editName=true;S.view="scan";render();requestAnimationFrame(()=>$("#nameIn")&&$("#nameIn").focus());break;
+    case "camStart":camStart();break;
+    case "camStop":camStop();break;
+    case "camPaused":case "resume":S.current=null;S.notFound=null;S.choices=null;camPause(false);setCamText("Namiřte na čárový kód");render();break;
+    case "torchBtn":try{CAM.torch=!CAM.torch;await CAM.track.applyConstraints({advanced:[{torch:CAM.torch}]})}catch(err){toast("Světlo nejde zapnout.")}break;
+    case "setBtn":{const v=parseQ($("#qty").value);if(isNaN(v)||v<0){toast("Zadejte číslo");break}setQ(S.current,v);afterSave();break}
+    case "exportBtn":exportXlsx();break;
+    case "reloadCat":loadCatalog();toast("Načítám seznam zboží…");break;
+    case "copyLink":try{await navigator.clipboard.writeText(shareLink());toast("Odkaz zkopírován")}catch(err){toast("Kopírování nejde, podržte prst na QR kódu.")}break;
+  }
+});
+document.addEventListener("submit",e=>{
+  e.preventDefault();const f=e.target;
+  if(f.id==="codeForm"){const v=$("#code").value;handleCode(v,{fromScan:/^\d{8,14}$/.test(v.trim())})}
+  else if(f.id==="qtyForm"){const v=parseQ($("#qty").value);if(isNaN(v)||v===0){toast("Zadejte počet");return}addQ(S.current,v);afterSave()}
+  else if(f.id==="nameForm"){S.name=$("#nameIn").value.trim();store.set("name",S.name);S.editName=false;render()}
+  else if(f.id==="unkForm"){const code=S.notFound;const n=$("#unkName").value.trim()||"Neznámé zboží";if(addQ("?"+code,1,{n,c:code})){S.notFound=null;S.query="";afterSave()}}
+  else if(f.id==="setupForm"){
+    try{const u=new URL($("#setupIn").value.trim());const a=u.searchParams.get("api"),k=u.searchParams.get("k");
+      if(!a||!k)throw 0; API=a;KEY=k;store.set("api",API);store.set("k",KEY);history.replaceState(null,"",shareLink());S.conn="connecting";start()}
+    catch(err){toast("Tohle není odkaz z tabulky. Musí obsahovat api= a k=.")}
+  }
+});
+document.addEventListener("change",e=>{if(e.target.id==="fast"){S.fast=e.target.checked;store.set("fast",S.fast)}});
+let ovT;document.addEventListener("input",e=>{if(e.target.id==="ovq"){S.ovQuery=e.target.value;clearTimeout(ovT);ovT=setTimeout(render,250)}});
+document.addEventListener("visibilitychange",()=>{if(document.hidden){if(S.cam)camStop()}else if(API){poll();flush()}});
+window.addEventListener("online",()=>{flush();poll()});
+
+let started=false;
+async function start(){
+  render(); if(!API||started)return; started=true;
+  await loadCatalog(); poll(); flush();
+  setInterval(()=>{if(!document.hidden){poll();flush()}},5000);
+}
+start();
+</script>
+</body>
+</html>
