@@ -434,8 +434,15 @@ async function decodeFile(file){
 }
 
 /* ---------- actions ---------- */
+const CZ_DIGITS={"+":"1","ě":"2","š":"3","č":"4","ř":"5","ž":"6","ý":"7","á":"8","í":"9","é":"0"};
+function fixScanner(v){
+  // čtečka na české klávesnici píše místo číslic +ěščřžýáíé
+  const t=String(v||"").trim();
+  if(t.length>=6&&/^[+ěščřžýáíé0-9]+$/.test(t)&&/[+ěščřžýáíé]/.test(t))return t.replace(/[+ěščřžýáíé]/g,c=>CZ_DIGITS[c]);
+  return t;
+}
 function handleCode(raw,{fromScan,fromCam}={}){
-  const code=String(raw||"").trim(); S.query=code; S.resetCode=true; S.choices=null;S.results=null;S.notFound=null;
+  const code=fixScanner(raw); S.query=code; S.resetCode=true; S.choices=null;S.results=null;S.notFound=null;
   if(!code){S.current=null;render();return}
   const hits=lookupCode(code);
   if(hits.length===1){
@@ -723,7 +730,7 @@ document.addEventListener("click",async e=>{
 });
 document.addEventListener("submit",e=>{
   e.preventDefault();const f=e.target;
-  if(f.id==="codeForm"){const v=$("#code").value;handleCode(v,{fromScan:/^\d{8,14}$/.test(v.trim())})}
+  if(f.id==="codeForm"){const v=fixScanner($("#code").value);handleCode(v,{fromScan:/^\d{8,14}$/.test(v)})}
   else if(f.id==="qtyForm"){const v=parseQ($("#qty").value);if(isNaN(v)||v===0){toast("Zadejte počet");return}addQ(S.current,v);afterSave()}
   else if(f.id==="pinForm")doLogin(S.loginName,$("#pinIn").value);
   else if(f.id==="joinForm")doJoin($("#joinName").value,$("#joinPin").value);
