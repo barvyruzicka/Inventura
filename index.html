@@ -151,7 +151,8 @@ let KEY=URLP.get("k")||store.get("k","");
 if(URLP.get("api")){store.set("api",API);store.set("k",KEY)}
 
 const S={
-  view:"scan", area:store.get("area","OBCHOD"), name:store.get("name",""), fast:store.get("fast",false),
+  view:"scan", area:store.get("area","OBCHOD"), name:(store.get("user",null)||{}).name||"", pin:(store.get("user",null)||{}).pin||"", fast:store.get("fast",false),
+  people:null, loginName:"", loginMode:"pick", loginMsg:"", newPin:null,
   dev:store.get("dev",null),
   conn:API?"connecting":"none", lastOk:0,
   gen:store.get("gen",null), since:0, agg:new Map(), seen:new Set(),
@@ -208,7 +209,7 @@ async function loadCatalog(){
     const res=await apiGet({a:"catalog"});
     if(!res.ok){connFail(res);if(res.err&&res.err!=="key")S.catError=res.err;render();return}
     connOk(); newGen(res.gen);
-    setCatalog(res.rows); S.catState=res.rows.length?"ok":"empty"; S.catError=null;
+    setCatalog(res.rows); S.catState=res.rows.length?"ok":"empty"; S.catError=null; S.catAt=res.at||""; S.catLocked=!!res.locked;
     store.set("catalog",res.rows.map(r=>r.slice(0,4)));
   }catch(e){connFail();if(!S.catalog.length)S.catState="error"}
   render();
@@ -228,8 +229,9 @@ const itemRow=key=>{const i=S.byCislo.get(key);return i==null?null:S.catalog[i]}
 const itemName=key=>{const r=itemRow(key);return r?r[0]:key};
 
 /* ---------- counts: server log + pending entries ---------- */
+const pkey=n=>norm(n||"?").replace(/\s+/g," ");
 function applyEntry(map,e){
-  const id=e.area+"~"+e.dev; let o=map.get(id);
+  const id=e.area+"~"+pkey(e.name); let o=map.get(id);
   if(!o){o={area:e.area,name:"",items:{}};map.set(id,o)}
   if(e.name)o.name=e.name;
   const it=o.items[e.cis]||(o.items[e.cis]={q:0,t:0});
@@ -258,12 +260,13 @@ let flushBusy=false;
 async function flush(){
   if(!API||flushBusy)return;
   const now=Date.now();
-  const batch=S.pending.filter(p=>!S.seen.has(p.id)&&(!p.sent||now-p.sent>30000)).slice(0,40);
+  if(!S.name||!S.pin)return;
+  const batch=S.pending.filter(p=>p.name===S.name&&!S.seen.has(p.id)&&(!p.sent||now-p.sent>30000)).slice(0,40);
   if(!batch.length)return;
   flushBusy=true;
   try{
-    const res=await apiPost({a:"add",gen:S.gen,entries:batch.map(({sent,...e})=>e)});
-    if(!res.ok){connFail(res);return}
+    const res=await apiPost({a:"add",gen:S.gen,name:S.name,pin:S.pin,entries:batch.map(({sent,...e})=>e)});
+    if(!res.ok){if(res.err==="pin"){logout("PIN už neplatí. Přihlaste se znovu, nic se neztratilo.");return}connFail(res);return}
     connOk();
     if(res.stale){newGen(res.gen);render();return}
     const ok=new Set(res.saved); S.pending.forEach(p=>{if(ok.has(p.id))p.sent=Date.now()}); savePending();
@@ -273,17 +276,17 @@ async function flush(){
 }
 function itemsOf(id){
   const base=S.agg.get(id)?.items||{};
-  const pend=S.pending.filter(p=>!S.seen.has(p.id)&&p.area+"~"+p.dev===id);
+  const pend=S.pending.filter(p=>!S.seen.has(p.id)&&p.area+"~"+pkey(p.name)===id);
   if(!pend.length)return base;
   const c=Object.assign({},base);
   for(const p of pend){const it=Object.assign({q:0,t:0},c[p.cis]);it.q=Math.round((it.q+p.d)*1000)/1000;if(p.t>it.t)it.t=p.t;if(p.cis.startsWith("?")){it.n=p.nm;it.c=p.note}c[p.cis]=it}
   return c;
 }
-function allDocIds(){const ids=new Set(S.agg.keys());S.pending.forEach(p=>ids.add(p.area+"~"+p.dev));return [...ids]}
-const docId=a=>a+"~"+S.dev;
+function allDocIds(){const ids=new Set(S.agg.keys());S.pending.forEach(p=>ids.add(p.area+"~"+pkey(p.name)));return [...ids]}
+const docId=a=>a+"~"+pkey(S.name);
 const areaOf=id=>id.split("~")[0];
-const isMine=id=>id.endsWith("~"+S.dev);
-function docName(id){return isMine(id)?S.name:(S.agg.get(id)?.name||"bez jména")}
+const isMine=id=>!!S.name&&id.slice(id.indexOf("~")+1)===pkey(S.name);
+function docName(id){return isMine(id)?S.name:(S.agg.get(id)?.name||S.pending.find(p=>p.area+"~"+pkey(p.name)===id)?.name||"bez jména")}
 function totals(){
   const t=new Map();
   for(const id of allDocIds()){
@@ -304,7 +307,7 @@ function addEntry(key,d,extra){
 }
 function canCount(){
   if(!API){toast("Stránka není propojená s tabulkou.");return false}
-  if(!S.name){S.editName=true;S.view="scan";render();toast("Nejdřív zadejte, kdo počítá.");return false}
+  if(!S.name){S.view="scan";render();toast("Nejdřív se přihlaste.");return false}
   return true;
 }
 function addQ(key,d,extra){
@@ -451,7 +454,7 @@ function scrollToCard(){requestAnimationFrame(()=>{const c=$("#card");if(c&&S.ca
 /* ---------- rendering ---------- */
 function render(){
   document.body.dataset.area=S.area;
-  $("#whoName").textContent=S.name||"nezadáno";
+  $("#whoName").textContent=S.name||"nepřihlášen";
   $("#areas").innerHTML=AREAS.map(a=>`<button type="button" data-area="${a.id}" aria-pressed="${a.id===S.area}"><i style="background:var(${a.c})"></i>${a.label}</button>`).join("");
   document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.view===S.view?"page":"false"));
   $("#cambox").hidden=!(S.cam&&S.view==="scan");
@@ -461,7 +464,7 @@ function render(){
   document.querySelectorAll("#main input[type=text],#main input[type=search],#main input[type=url]").forEach(i=>{if(i.id)vals[i.id]=i.value});
   if(S.current!==prevCard)delete vals.qty;
   if(S.resetCode){delete vals.code;S.resetCode=false}
-  $("#main").innerHTML=!API?viewSetup():S.view==="scan"?viewScan():S.view==="overview"?viewOverview():viewSettings();
+  $("#main").innerHTML=!API?viewSetup():(!S.name||S.newPin)?viewLogin():S.view==="scan"?viewScan():S.view==="overview"?viewOverview():viewSettings();
   for(const id in vals){const el=document.getElementById(id);if(el)el.value=vals[id]}
   const card=$("#card");if(card&&S.current===prevCard)card.classList.remove("flash");
   S.renderedCard=S.current;
@@ -484,8 +487,7 @@ function viewSetup(){
 }
 function viewScan(){
   let h="";
-  if(S.editName||!S.name)h+=nameForm();
-  h+=`<section class="panel">
+    h+=`<section class="panel">
     ${S.cam?"":`<button class="btn area big" type="button" id="camStart">Skenovat kamerou</button>`}
     <form class="scanrow" id="codeForm" autocomplete="off">
       <input type="search" id="code" inputmode="search" placeholder="EAN, číslo zboží nebo název" value="${esc(S.query)}" aria-label="Kód nebo název zboží" enterkeyhint="search">
@@ -519,6 +521,7 @@ function itemCard(key){
     <form id="qtyForm" style="display:flex;flex-direction:column;gap:8px">
       <div class="qty"><button type="button" class="btn" data-step="-1" aria-label="Méně">−</button><input type="text" inputmode="decimal" id="qty" value="1" aria-label="Počet kusů" enterkeyhint="done"><button type="button" class="btn" data-step="1" aria-label="Více">+</button></div>
       <div class="actions"><button class="btn area" type="submit">Přičíst</button><button class="btn" type="button" id="setBtn">Nastavit můj počet</button></div>
+      ${me?`<button class="btn danger" type="button" id="delBtn">Smazat můj počet (${fmt(me)})</button>`:""}
       ${S.cam?`<button class="btn" type="button" id="resume">Zrušit a skenovat dál</button>`:""}
     </form>
   </section>`;
@@ -531,10 +534,52 @@ function recentPanel(){
   <div class="list">${ks.slice(0,25).map(k=>`<button type="button" class="li" data-pick="${esc(k)}"><span class="n">${esc(k.startsWith("?")?(it[k].n||"Neznámé zboží"):itemName(k))}</span><span class="q">${fmt(+it[k].q)}</span><span class="s">${esc(k.startsWith("?")?"neznámé · "+k.slice(1):k)} · ${new Date(it[k].t).toLocaleTimeString("cs-CZ",{hour:"2-digit",minute:"2-digit"})}</span></button>`).join("")}</div>
   ${ks.length>25?`<p class="hint" style="margin:0">Zobrazeno posledních 25. Všechny najdete v Přehledu.</p>`:""}</section>`;
 }
-function nameForm(){
-  return `<section class="panel"><h2>Kdo počítá na tomto telefonu</h2>
-  <form class="scanrow" id="nameForm"><input type="text" id="nameIn" placeholder="Jméno" value="${esc(S.name)}" autocomplete="given-name"><button class="btn primary" type="submit">Uložit</button></form>
-  <p class="hint" style="margin:0">Jméno se zapisuje k načteným položkám, aby bylo vidět, kdo co počítal.</p></section>`;
+function viewLogin(){
+  if(S.newPin)return `<section class="panel"><h2>Váš osobní PIN</h2>
+    <p style="margin:0">Jste přihlášen jako <b>${esc(S.name)}</b>. Na jiném telefonu se přihlásíte tímto PINem:</p>
+    <div style="font:700 48px/1 var(--f-label);letter-spacing:.2em;text-align:center;padding:10px 0">${esc(S.newPin)}</div>
+    <button class="btn primary big" type="button" id="newPinOk">Zapamatoval jsem si ho</button></section>`;
+  const msg=S.loginMsg?`<div class="banner bad">${esc(S.loginMsg)}</div>`:"";
+  if(S.loginMode==="pin")return `<section class="panel"><h2>Přihlášení</h2>${msg}
+    <p style="margin:0;font-size:18px"><b>${esc(S.loginName)}</b></p>
+    <form class="scanrow" id="pinForm" autocomplete="off"><input type="text" id="pinIn" inputmode="numeric" maxlength="8" placeholder="PIN" aria-label="PIN" enterkeyhint="go"><button class="btn primary" type="submit">Přihlásit</button></form>
+    <button class="btn" type="button" id="pickMode">Zpět na seznam jmen</button></section>`;
+  if(S.loginMode==="join")return `<section class="panel"><h2>Nový pomocník</h2>${msg}
+    <p class="hint" style="margin:0">Napište své jméno a PIN pro pomocníky, který vám řekne vedoucí. Dostanete vlastní PIN.</p>
+    <form id="joinForm" style="display:flex;flex-direction:column;gap:8px" autocomplete="off">
+      <input type="text" id="joinName" placeholder="Jméno a příjmení" aria-label="Jméno" autocomplete="name">
+      <input type="text" id="joinPin" inputmode="numeric" maxlength="8" placeholder="PIN pro pomocníky" aria-label="PIN pro pomocníky">
+      <button class="btn primary" type="submit">Přihlásit se jako pomocník</button></form>
+    <button class="btn" type="button" id="pickMode">Zpět na seznam jmen</button></section>`;
+  const names=S.people;
+  return `<section class="panel"><h2>Kdo počítá?</h2>${msg}
+    ${names==null?`<p class="hint" style="margin:0">Načítám seznam lidí…</p>`:names.length?`<div class="chips">${names.map(n=>`<button type="button" class="chip" style="font-size:17px;padding:13px 16px" data-who="${esc(n)}">${esc(n)}</button>`).join("")}</div>`:`<p class="hint" style="margin:0">V tabulce zatím nikdo není. Majitel spustí Inventura → 1) Připravit tabulku.</p>`}
+    <button class="btn" type="button" id="joinMode">Nový pomocník</button></section>`;
+}
+async function loadPeople(){
+  try{const r=await apiGet({a:"people"});if(r.ok){S.people=r.names;connOk()}else{connFail(r);S.people=S.people||[]}}catch(e){connFail();S.people=S.people||[]}
+  if(!S.name)render();
+}
+function setUser(name,pin){S.name=name;S.pin=pin;store.set("user",{name,pin});S.loginMode="pick";S.loginMsg="";S.loginName=""}
+async function doLogin(name,pin){
+  pin=String(pin||"").trim(); if(!pin){S.loginMsg="Zadejte PIN.";render();return}
+  try{const r=await apiPost({a:"login",name,pin});
+    if(r.ok){setUser(r.name,pin);render();flush();toast("Přihlášen: "+r.name)}
+    else if(r.err==="pin"){S.loginMsg="Špatný PIN.";render()}
+    else{S.loginMsg="Přihlášení se nepovedlo ("+(r.err||"chyba")+").";render()}
+  }catch(e){S.loginMsg="Bez spojení s tabulkou. Zkuste to za chvíli.";render()}
+}
+async function doJoin(name,hostpin){
+  name=String(name||"").trim(); if(!name){S.loginMsg="Napište své jméno.";render();return}
+  try{const r=await apiPost({a:"join",name,hostpin:String(hostpin||"").trim()});
+    if(r.ok){setUser(r.name,r.pin);S.newPin=r.pin;render();loadPeople()}
+    else S.loginMsg=r.err==="hostpin"?"Špatný PIN pro pomocníky.":r.err==="exists"?"Toto jméno už v seznamu je. Vyberte ho na seznamu, nebo přidejte příjmení.":"Přihlášení se nepovedlo.",render();
+  }catch(e){S.loginMsg="Bez spojení s tabulkou. Zkuste to za chvíli.";render()}
+}
+function logout(msg){
+  if(S.cam)camStop();
+  S.name="";S.pin="";store.set("user",null);S.view="scan";S.current=null;S.loginMode="pick";
+  if(msg)toast(msg); render(); loadPeople();
 }
 function overviewRows(){
   const t=totals(); const rows=[]; const a=S.ovArea; const q=norm(S.ovQuery);
@@ -576,7 +621,9 @@ function viewOverview(){
 function shareLink(){return location.origin+location.pathname+"?api="+encodeURIComponent(API)+"&k="+encodeURIComponent(KEY)}
 function viewSettings(){
   const wait=S.pending.filter(p=>!S.seen.has(p.id)).length;
-  let h=nameForm();
+  let h=`<section class="panel"><h2>Přihlášený</h2>
+    <div class="row" style="justify-content:space-between"><b style="font-size:18px">${esc(S.name)}</b><button class="btn" type="button" id="logoutBtn">Odhlásit</button></div>
+    <p class="hint" style="margin:0">Na jednom telefonu se lidé mohou střídat: odhlásit a přihlásit se svým jménem a PINem.</p></section>`;
   h+=`<section class="panel"><h2>Připojit další telefon</h2>
     <p class="hint" style="margin:0">Na druhém telefonu otevřete fotoaparát a naskenujte tento kód. Otevře se inventura propojená se stejnou tabulkou.</p>
     <div id="qr"></div>
@@ -585,6 +632,7 @@ function viewSettings(){
   h+=`<section class="panel"><h2>Spojení</h2><dl class="kv">
     <dt>Tabulka</dt><dd>${S.conn==="ok"?"připojeno":S.conn==="offline"?"bez spojení":S.conn==="key"?"neplatný klíč":"připojuji…"}</dd>
     <dt>Seznam zboží</dt><dd>${fmt(S.catalog.length)} položek</dd>
+    <dt>Katalog z Cézaru</dt><dd>${S.catAt?esc(S.catAt):"ručně vložený"}${S.catLocked?" · zamčený pro inventuru":""}</dd>
     <dt>Zápisů v tabulce</dt><dd>${fmt(S.since)}</dd>
     <dt>Čeká na odeslání</dt><dd>${fmt(wait)}</dd>
     <dt>Toto zařízení</dt><dd class="code">${esc(S.dev)}</dd></dl>
@@ -647,15 +695,22 @@ document.addEventListener("click",async e=>{
   if(b.dataset.view){S.view=b.dataset.view;if(S.view!=="scan"&&S.cam)camStop();render();window.scrollTo(0,0);return}
   if(b.dataset.pick){if(b.dataset.go)S.view="scan";pick(b.dataset.pick);if(!S.cam)window.scrollTo(0,0);return}
   if(b.dataset.step){const q=$("#qty");const v=parseQ(q.value)||0;q.value=fmt(Math.max(0,v+ +b.dataset.step));return}
+  if(b.dataset.who){S.loginName=b.dataset.who;S.loginMode="pin";S.loginMsg="";render();requestAnimationFrame(()=>$("#pinIn")&&$("#pinIn").focus());return}
   if(b.dataset.ovf){S.ovFilter=b.dataset.ovf;render();return}
   if(b.dataset.ova){S.ovArea=b.dataset.ova;render();return}
   switch(b.id){
-    case "whoBtn":S.editName=true;S.view="scan";render();requestAnimationFrame(()=>$("#nameIn")&&$("#nameIn").focus());break;
+    case "whoBtn":if(S.name){S.view="settings";render();window.scrollTo(0,0)}break;
+    case "logoutBtn":logout("Odhlášeno");break;
+    case "joinMode":S.loginMode="join";S.loginMsg="";render();break;
+    case "pickMode":S.loginMode="pick";S.loginMsg="";render();break;
+    case "newPinOk":S.newPin=null;render();break;
     case "camStart":camStart();break;
     case "camStop":camStop();break;
     case "camPaused":case "resume":S.current=null;S.notFound=null;S.choices=null;camPause(false);setCamText("Namiřte na čárový kód");render();break;
     case "torchBtn":try{CAM.torch=!CAM.torch;await CAM.track.applyConstraints({advanced:[{torch:CAM.torch}]})}catch(err){toast("Světlo nejde zapnout.")}break;
     case "setBtn":{const v=parseQ($("#qty").value);if(isNaN(v)||v<0){toast("Zadejte číslo");break}setQ(S.current,v);afterSave();break}
+    case "delBtn":{const m=myQ(S.current);if(!m)break;if(S.confirmDel!==S.current){S.confirmDel=S.current;b.textContent="Opravdu smazat? Klepněte znovu";setTimeout(()=>{if(S.confirmDel){S.confirmDel=null;const x=$("#delBtn");if(x)x.textContent="Smazat můj počet ("+fmt(myQ(S.current))+")"}},4000);break}
+      S.confirmDel=null;setQ(S.current,0);toast("Smazáno: "+itemName(S.current));afterSave();break}
     case "exportBtn":exportXlsx();break;
     case "csvBtn":exportCsv();break;
     case "reloadCat":loadCatalog();toast("Načítám seznam zboží…");break;
@@ -666,7 +721,8 @@ document.addEventListener("submit",e=>{
   e.preventDefault();const f=e.target;
   if(f.id==="codeForm"){const v=$("#code").value;handleCode(v,{fromScan:/^\d{8,14}$/.test(v.trim())})}
   else if(f.id==="qtyForm"){const v=parseQ($("#qty").value);if(isNaN(v)||v===0){toast("Zadejte počet");return}addQ(S.current,v);afterSave()}
-  else if(f.id==="nameForm"){S.name=$("#nameIn").value.trim();store.set("name",S.name);S.editName=false;render()}
+  else if(f.id==="pinForm")doLogin(S.loginName,$("#pinIn").value);
+  else if(f.id==="joinForm")doJoin($("#joinName").value,$("#joinPin").value);
   else if(f.id==="unkForm"){const code=S.notFound;const n=$("#unkName").value.trim()||"Neznámé zboží";if(addQ("?"+code,1,{n,c:code})){S.notFound=null;S.query="";afterSave()}}
   else if(f.id==="setupForm"){
     try{const u=new URL($("#setupIn").value.trim());const a=u.searchParams.get("api"),k=u.searchParams.get("k");
@@ -682,7 +738,7 @@ window.addEventListener("online",()=>{flush();poll()});
 let started=false;
 async function start(){
   render(); if(!API||started)return; started=true;
-  await loadCatalog(); poll(); flush();
+  loadPeople(); await loadCatalog(); poll(); flush();
   setInterval(()=>{if(!document.hidden){poll();flush()}},5000);
 }
 start();
