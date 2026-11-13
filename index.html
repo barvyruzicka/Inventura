@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1f4fa8">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Inventura">
+<meta name="apple-mobile-web-app-title" content="BLR App">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<title>Inventura Barvy Laky Růžička</title>
+<title>BLR App</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap&subset=latin-ext">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -87,7 +87,7 @@ input:focus-visible,button:focus-visible{outline:3px solid color-mix(in srgb,var
 .areabar{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:14px}
 .areabar .dot{width:12px;height:12px;border-radius:3px}
 .areabar .num{font:700 17px/1 var(--f-label);font-variant-numeric:tabular-nums;text-align:right}
-nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 nav.tabs button{font:700 15px/1 var(--f-label);letter-spacing:.07em;text-transform:uppercase;padding:16px 4px;background:none;border:0;color:var(--muted);cursor:pointer;border-top:3px solid transparent}
 nav.tabs button[aria-current="page"]{color:var(--fg);border-top-color:var(--area)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:11px 16px;border-radius:8px;font-weight:600;z-index:20;max-width:calc(100% - 32px);text-align:center}
@@ -111,6 +111,35 @@ ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;f
 .cambox .paused{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);color:#fff;font:700 18px var(--f-label);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border:0;width:100%}
 .cambox.hit{animation:hit .45s ease-out}
 @keyframes hit{from{border-color:var(--ok);box-shadow:0 0 0 6px color-mix(in srgb,var(--ok) 50%,transparent)}to{box-shadow:none}}
+.back{font:700 15px/1 var(--f-label);letter-spacing:.05em;text-transform:uppercase;background:var(--surface);color:var(--fg);border:1.5px solid var(--line);border-radius:8px;padding:9px 11px;cursor:pointer}
+.top{align-items:center}
+h1{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+h1 .logo{width:30px;height:30px;border-radius:6px;background:#fff;flex:none}
+.tiles{display:flex;flex-direction:column;gap:10px;min-width:0}
+#main>*{min-width:0}
+.tile{display:grid;grid-template-columns:52px minmax(0,1fr) auto;min-width:0;gap:14px;align-items:center;text-align:left;width:100%;padding:16px 14px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--fg);font:inherit;cursor:pointer}
+.tile:hover:not(.soon){border-color:var(--accent)}
+.tile .ic{width:52px;height:52px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 18%,var(--surface));color:var(--c)}
+.tile .ic svg{width:28px;height:28px}
+.tile b{display:block;font:700 21px/1.15 var(--f-label);letter-spacing:.04em;text-transform:uppercase}
+.tile small{display:block;font-size:14px;color:var(--muted);margin-top:3px}
+.tile .go{font:700 22px/1 var(--f-ui);color:var(--muted)}
+.tile.soon{cursor:default;opacity:.62;border-style:dashed}
+.tile .tag{display:inline-block;margin-top:6px;font:700 11px/1 var(--f-ui);letter-spacing:.06em;text-transform:uppercase;padding:5px 7px;border-radius:6px;background:var(--sunk);color:var(--muted)}
+.stag{display:inline-block;font:700 11px/1 var(--f-ui);letter-spacing:.05em;text-transform:uppercase;padding:4px 6px;border-radius:5px;background:var(--sunk);color:var(--muted);vertical-align:middle}
+.stag.zap{background:color-mix(in srgb,var(--warn) 20%,var(--surface));color:var(--fg)}
+.stag.obj{background:color-mix(in srgb,var(--accent) 20%,var(--surface));color:var(--fg)}
+.stag.dod{background:color-mix(in srgb,var(--ok) 20%,var(--surface));color:var(--fg)}
+.supgrid{display:flex;flex-wrap:wrap;gap:6px}
+.supgrid .chip{font-size:15px;padding:10px 12px}
+.supgrid .chip small{font-size:11px;color:inherit;opacity:.7;margin-left:4px}
+.ohead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.ohead h3{margin:0;font:700 20px/1.1 var(--f-label);letter-spacing:.04em;text-transform:uppercase}
+.oacts{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 10px}
+.oacts .btn{padding:10px 12px;font-size:14px}
+.li.sel{background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+.warnbox{font-size:14px;padding:9px 11px;border-radius:8px;background:color-mix(in srgb,var(--warn) 16%,var(--surface))}
+.hello{font:700 26px/1.15 var(--f-label);margin:4px 0 0;letter-spacing:.02em}
 #qr{align-self:center;background:#fff;padding:10px;border-radius:8px}
 #qr img,#qr canvas{display:block}
 </style>
@@ -119,8 +148,9 @@ ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;f
 <div class="wrap">
   <header>
     <div class="top">
-      <h1>Inventura</h1>
-      <button class="who" id="whoBtn" type="button">Kdo počítá: <span id="whoName">nezadáno</span></button>
+      <button class="back" id="homeBtn" type="button" hidden aria-label="Zpět do menu">‹ Menu</button>
+      <h1 id="appTitle"><img src="icon-192.png" alt="" class="logo" id="appLogo">BLR App</h1>
+      <button class="who" id="whoBtn" type="button"><span id="whoName">nepřihlášen</span></button>
     </div>
     <div class="areas" id="areas" role="group" aria-label="Úsek"></div>
   </header>
@@ -134,17 +164,14 @@ ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;f
   </section>
   <main id="main" class="wrap"></main>
 </div>
-<nav class="tabs" aria-label="Sekce">
-  <button type="button" data-view="scan">Počítání</button>
-  <button type="button" data-view="overview">Přehled</button>
-  <button type="button" data-view="settings">Nastavení</button>
-</nav>
+<nav class="tabs" id="tabs" aria-label="Sekce"></nav>
 <div class="toast" id="toast" hidden></div>
 
 <script>
 "use strict";
 const AREAS=[{id:"SKLAD",label:"Sklad",c:"--sklad"},{id:"OBCHOD",label:"Obchod",c:"--obchod"},{id:"MICHARNA",label:"Míchárna",c:"--michr"}];
 const AREA_LABEL=Object.fromEntries(AREAS.map(a=>[a.id,a.label]));
+function modFromHash(){const h=location.hash;return h==="#inventura"?"inventura":h==="#objednavky"?"objednavky":"home"}
 const store={get(k,d){try{const v=localStorage.getItem("inv."+k);return v==null?d:JSON.parse(v)}catch(e){return d}},
   set(k,v){try{localStorage.setItem("inv."+k,JSON.stringify(v))}catch(e){}}};
 
@@ -155,7 +182,7 @@ let KEY=URLP.get("k")||store.get("k","");
 if(URLP.get("api")){store.set("api",API);store.set("k",KEY)}
 
 const S={
-  view:"scan", area:store.get("area","OBCHOD"), name:(store.get("user",null)||{}).name||"", pin:(store.get("user",null)||{}).pin||"", fast:store.get("fast",false),
+  module:modFromHash(), oview:"add", ofilt:"zap", osel:null, oconf:null, ord:{sup:[],rows:[],map:{},loaded:false}, osup:null, ounit:"ks", view:"scan", area:store.get("area","OBCHOD"), name:(store.get("user",null)||{}).name||"", pin:(store.get("user",null)||{}).pin||"", fast:store.get("fast",false),
   people:null, loginName:"", loginMode:"pick", loginMsg:"", newPin:null,
   dev:store.get("dev",null),
   conn:API?"connecting":"none", lastOk:0,
@@ -410,7 +437,7 @@ function onCamCode(code){
   CAM.last=code;CAM.lastT=now;
   beep(); const box=$("#cambox"); box.classList.remove("hit"); void box.offsetWidth; box.classList.add("hit");
   const hits=lookupCode(code);
-  if(S.fast&&hits.length===1){
+  if(S.fast&&S.module==="inventura"&&hits.length===1){
     const key=S.catalog[hits[0]][2];
     if(addQ(key,1)){S.current=key;S.choices=S.results=S.notFound=null;setCamText(`+1 · ${itemName(key)} (můj počet ${fmt(myQ(key))})`);render()}
     return;
@@ -447,7 +474,7 @@ function handleCode(raw,{fromScan,fromCam}={}){
   const hits=lookupCode(code);
   if(hits.length===1){
     S.current=S.catalog[hits[0]][2]; S.query="";
-    if(S.fast&&fromScan&&!fromCam){addQ(S.current,1);render();focusCode();return}
+    if(S.fast&&S.module==="inventura"&&fromScan&&!fromCam){addQ(S.current,1);render();focusCode();return}
     render(); if(!S.cam)focusQty(); scrollToCard(); return;
   }
   if(hits.length>1){S.choices=hits;S.current=null;render();return}
@@ -466,16 +493,24 @@ function scrollToCard(){requestAnimationFrame(()=>{const c=$("#card");if(c&&S.ca
 function render(){
   document.body.dataset.area=S.area;
   $("#whoName").textContent=S.name||"nepřihlášen";
+  const inv=S.module==="inventura", ord=S.module==="objednavky", inApp=!!(API&&S.name&&!S.newPin);
+  if(ord)document.body.dataset.area="OBCHOD";
+  $("#appTitle").lastChild.textContent=inv?"Inventura":ord?"Objednávky":"BLR App";
+  $("#appLogo").hidden=inv||ord;
+  $("#homeBtn").hidden=!((inv||ord)&&inApp);
+  $("#areas").hidden=!(inv&&inApp);
+  const tabs=$("#tabs"); tabs.hidden=!((inv||ord)&&inApp);
+  tabs.innerHTML=inv?[["scan","Počítání"],["overview","Přehled"],["settings","Nastavení"]].map(([v,l])=>`<button type="button" data-view="${v}" aria-current="${S.view===v?"page":"false"}">${l}</button>`).join("")
+    :ord?[["add","Zapsat"],["list","Seznam"+(ordCount("Zapsáno")?` (${ordCount("Zapsáno")})`:"")]].map(([v,l])=>`<button type="button" data-oview="${v}" aria-current="${S.oview===v?"page":"false"}">${l}</button>`).join(""):"";
   $("#areas").innerHTML=AREAS.map(a=>`<button type="button" data-area="${a.id}" aria-pressed="${a.id===S.area}"><i style="background:var(${a.c})"></i>${a.label}</button>`).join("");
-  document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.view===S.view?"page":"false"));
-  $("#cambox").hidden=!(S.cam&&S.view==="scan");
+  $("#cambox").hidden=!(S.cam&&((S.view==="scan"&&inv)||(S.oview==="add"&&ord)));
   renderStatus();
   const ae=document.activeElement, keep=ae&&ae.id; let sel=null; try{sel=keep&&ae.selectionStart}catch(e){}
   const vals={}, prevCard=S.renderedCard;
   document.querySelectorAll("#main input[type=text],#main input[type=search],#main input[type=url]").forEach(i=>{if(i.id)vals[i.id]=i.value});
-  if(S.current!==prevCard)delete vals.qty;
+  if(S.current!==prevCard){delete vals.qty;delete vals.onote;delete vals.ofree}
   if(S.resetCode){delete vals.code;S.resetCode=false}
-  $("#main").innerHTML=!API?viewSetup():(!S.name||S.newPin)?viewLogin():S.view==="scan"?viewScan():S.view==="overview"?viewOverview():viewSettings();
+  $("#main").innerHTML=!API?viewSetup():(!S.name||S.newPin)?viewLogin():ord?(S.oview==="list"?viewOrdList():viewOrdAdd()):!inv?viewHome():S.view==="scan"?viewScan():S.view==="overview"?viewOverview():viewSettings();
   for(const id in vals){const el=document.getElementById(id);if(el)el.value=vals[id]}
   const card=$("#card");if(card&&S.current===prevCard)card.classList.remove("flash");
   S.renderedCard=S.current;
@@ -545,6 +580,185 @@ function recentPanel(){
   <div class="list">${ks.slice(0,25).map(k=>`<button type="button" class="li" data-pick="${esc(k)}"><span class="n">${esc(k.startsWith("?")?(it[k].n||"Neznámé zboží"):itemName(k))}</span><span class="q">${fmt(+it[k].q)}</span><span class="s">${esc(k.startsWith("?")?"neznámé · "+k.slice(1):k)} · ${new Date(it[k].t).toLocaleTimeString("cs-CZ",{hour:"2-digit",minute:"2-digit"})}</span></button>`).join("")}</div>
   ${ks.length>25?`<p class="hint" style="margin:0">Zobrazeno posledních 25. Všechny najdete v Přehledu.</p>`:""}</section>`;
 }
+const ICONS={
+  inv:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5v14M6 5v14M10 5v14M13 5v14M17 5v14M21 5v14"/></svg>',
+  obj:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v15H5z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>',
+  dl:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>'
+};
+function viewHome(){
+  let mine=0,pcs=0;for(const a of AREAS){const it=itemsOf(a.id+"~"+pkey(S.name));for(const k in it)if(+it[k].q>0){mine++;pcs+=+it[k].q}}
+  const t=totals();let all=0;for(const [,o] of t)if(o.ALL>0)all++;
+  const h=new Date().getHours(), greet=h<10?"Dobré ráno":h<18?"Dobrý den":"Dobrý večer";
+  return `<section style="display:flex;flex-direction:column;gap:4px;padding-top:6px"><p class="hint" style="margin:0">Barvy Laky Růžička · Třebíč</p><p class="hello">${greet}, ${esc(S.name)}</p></section>
+  <section class="tiles">
+    <button type="button" class="tile" data-mod="inventura"><span class="ic" style="--c:var(--sklad)">${ICONS.inv}</span>
+      <span><b>Inventura</b><small>${all?`Spočítáno celkem ${fmt(all)} pol. · moje ${fmt(mine)} pol. / ${fmt(pcs)} ks`:"Počítání skladu, export do Cézaru"}</small></span><span class="go">›</span></button>
+    <button type="button" class="tile" data-mod="objednavky"><span class="ic" style="--c:var(--obchod)">${ICONS.obj}</span>
+      <span><b>Objednávky</b><small>${S.ord.loaded?(ordCount("Zapsáno")?`K objednání ${fmt(ordCount("Zapsáno"))} pol.`:"Nic nečeká na objednání")+(ordCount("Objednáno")?` · objednáno ${fmt(ordCount("Objednáno"))}`:""):"Sešit objednávek podle dodavatelů"}</small></span><span class="go">›</span></button>
+    <div class="tile soon" aria-disabled="true"><span class="ic" style="--c:var(--michr)">${ICONS.dl}</span>
+      <span><b>Dodací listy</b><small>Odběry firem na dodák, měsíční fakturace</small><span class="tag">Připravujeme</span></span></div>
+  </section>
+  <section class="panel"><div class="row" style="justify-content:space-between"><span>Přihlášený: <b>${esc(S.name)}</b></span><button class="btn" type="button" id="logoutBtn">Odhlásit</button></div>
+    <p class="hint" style="margin:0">${S.catalog.length?`Katalog zboží: ${fmt(S.catalog.length)} položek${S.catAt?" · "+esc(S.catAt):""}`:"Načítám katalog zboží…"}</p></section>`;
+}
+/* ================= OBJEDNÁVKY ================= */
+const OST={"Zapsáno":"zap","Objednáno":"obj","Dodáno":"dod","Zrušeno":"zru"};
+function ordCount(st){return S.ord.rows.filter(r=>r[10]===st).length}
+function supInfo(n){return S.ord.sup.find(x=>x[0]===n)||[n,"Jinak","",""]}
+const dmy=t=>{if(!t)return"";const d=new Date(t);return d.getDate()+". "+(d.getMonth()+1)+"."};
+let ordBusy=false;
+async function loadOrders(){
+  if(!API||!S.name||ordBusy)return; ordBusy=true;
+  try{const r=await apiGet({a:"ord"});
+    if(r.ok){S.ord={sup:r.sup||[],rows:r.rows||[],map:r.map||{},loaded:true};connOk();
+      if(S.module==="objednavky"||S.module==="home"){const a=document.activeElement;if(!(a&&a.tagName==="INPUT"&&a.closest("#main")))render();else renderLight()}}
+    else connFail(r);
+  }catch(e){connFail()}
+  finally{ordBusy=false}
+}
+function renderLight(){const t=$("#tabs");if(t&&S.module==="objednavky"){const b=t.querySelector('[data-oview="list"]');if(b)b.textContent="Seznam"+(ordCount("Zapsáno")?` (${ordCount("Zapsáno")})`:"")}}
+async function ordPost(body){
+  const r=await apiPost(Object.assign({name:S.name,pin:S.pin},body));
+  if(!r.ok&&r.err==="pin"){logout("PIN už neplatí. Přihlaste se znovu.");throw new Error("pin")}
+  if(!r.ok)throw new Error(r.err||"chyba");
+  return r;
+}
+function viewOrdAdd(){
+  let h=`<section class="panel">
+    ${S.cam?"":`<button class="btn primary big" type="button" id="camStart">Skenovat kamerou</button>`}
+    <form class="scanrow" id="codeForm" autocomplete="off">
+      <input type="search" id="code" inputmode="search" placeholder="EAN, číslo zboží nebo název" value="${esc(S.query)}" aria-label="Kód nebo název zboží" enterkeyhint="search">
+      <button class="btn" type="submit">Hledat</button>
+    </form>
+    <button class="btn" type="button" id="freeBtn">Zapsat zboží bez kódu (ručně)</button>
+  </section>`;
+  if(S.choices)h+=`<section class="panel" id="card"><h2>Tento kód má víc položek, vyberte</h2><div class="list">${S.choices.map(i=>ordLi(i)).join("")}</div></section>`;
+  if(S.results&&S.results.length)h+=`<section class="panel"><h2>Nalezeno ${S.results.length>=40?"40+":S.results.length}</h2><div class="list">${S.results.map(i=>ordLi(i)).join("")}</div></section>`;
+  if(S.notFound)h+=`<section class="panel" id="card"><h2>Nenalezeno</h2><p style="margin:0">„<span class="code">${esc(S.notFound)}</span>“ v seznamu zboží není. Zkuste napsat část názvu, nebo zboží zapište ručně.</p>
+    <button class="btn" type="button" id="freeBtn">Zapsat ručně</button>${S.cam?`<button class="btn" type="button" id="resume">Skenovat dál</button>`:""}</section>`;
+  if(S.current)h+=orderCard(S.current);
+  const mine=S.ord.rows.filter(r=>r[10]==="Zapsáno"&&r[2]===S.name).sort((a,b)=>b[1]-a[1]);
+  h+=`<section class="panel"><div class="row" style="justify-content:space-between"><h2>Moje zápisy k objednání</h2><span class="hint">${mine.length} pol.</span></div>
+    ${mine.length?`<div class="list">${mine.slice(0,15).map(r=>`<div class="li" style="cursor:default"><span class="n">${esc(r[5])}</span><span class="q">${fmt(r[7])} ${esc(r[8])}</span><span class="s">${esc(r[3])}${r[9]?" · "+esc(r[9]):""} · ${dmy(r[1])}</span></div>`).join("")}</div>`
+    :`<p class="hint" style="margin:0">Naskenujte nebo vyhledejte zboží, které dochází, vyberte dodavatele a počet. Všichni pak vidí, co je potřeba objednat.</p>`}</section>`;
+  return h;
+}
+function ordLi(i){const r=S.catalog[i];const open=S.ord.rows.filter(x=>x[4]===r[2]&&(x[10]==="Zapsáno"||x[10]==="Objednáno"));
+  return `<button type="button" class="li" data-pick="${esc(r[2])}"><span class="n">${esc(r[0])}</span><span class="q">${fmt(+r[3]||0)}</span><span class="s">${esc(r[2])}${r[1]?" · "+esc(r[1]):""}${open.length?` · <span class="stag ${OST[open[0][10]]}">${esc(open[0][10])}</span>`:""}</span></button>`}
+function orderCard(key){
+  const free=key==="__free__", r=free?null:itemRow(key);
+  const open=free?[]:S.ord.rows.filter(x=>x[4]===key&&(x[10]==="Zapsáno"||x[10]==="Objednáno"));
+  if(S.osupFor!==key){S.osupFor=key;S.osup=free?null:(S.ord.map[key]||null);S.ounit="ks"}
+  const sups=S.ord.sup.length?S.ord.sup:[["Ostatní","Jinak","",""]];
+  return `<section class="panel flash" id="card">
+    ${free?`<h2>Zboží bez kódu</h2><input type="text" id="ofree" placeholder="Název zboží (např. S2000 0110 7 l)" aria-label="Název zboží">`
+      :`<div><p class="item-name">${esc(r?r[0]:key)}</p><div class="code">${esc(key)}${r&&r[1]?" · EAN "+esc(r[1]):""} · v Cézaru ${fmt(r?+r[3]||0:0)}</div></div>`}
+    ${open.length?`<div class="warnbox">Už je v objednávkách: ${open.map(o=>`<b>${esc(o[2])}</b> ${fmt(o[7])} ${esc(o[8])} · ${esc(o[3])} · ${esc(o[10]).toLowerCase()} ${dmy(o[10]==="Objednáno"?o[11]:o[1])}`).join("; ")}</div>`:""}
+    <div><h2 style="margin-bottom:8px">Dodavatel${!free&&S.ord.map[key]?` <span class="hint" style="text-transform:none;letter-spacing:0">(naposledy ${esc(S.ord.map[key])})</span>`:""}</h2>
+      <div class="supgrid">${sups.map(x=>`<button type="button" class="chip" data-osup="${esc(x[0])}" aria-pressed="${S.osup===x[0]}">${esc(x[0])}<small>${esc(x[1])}</small></button>`).join("")}</div></div>
+    <form id="ordForm" style="display:flex;flex-direction:column;gap:8px" autocomplete="off">
+      <div class="qty"><button type="button" class="btn" data-step="-1" aria-label="Méně">−</button><input type="text" inputmode="decimal" id="qty" value="1" aria-label="Počet" enterkeyhint="done"><button type="button" class="btn" data-step="1" aria-label="Více">+</button></div>
+      <div class="chips"><button type="button" class="chip" data-ounit="ks" aria-pressed="${S.ounit==="ks"}">kusů</button><button type="button" class="chip" data-ounit="bal" aria-pressed="${S.ounit==="bal"}">balení / kartonů</button></div>
+      <input type="text" id="onote" placeholder="Poznámka (odstín, zrnitost, PET…)" aria-label="Poznámka">
+      <button class="btn primary big" type="submit">Zapsat do objednávky</button>
+      ${S.cam?`<button class="btn" type="button" id="resume">Zrušit a skenovat dál</button>`:""}
+    </form></section>`;
+}
+async function submitOrder(){
+  const key=S.current, free=key==="__free__", r=free?null:itemRow(key);
+  const nm=free?($("#ofree").value.trim()):(r?r[0]:key);
+  if(!nm){toast("Napište název zboží");return}
+  if(!S.osup){toast("Vyberte dodavatele");return}
+  const q=parseQ($("#qty").value); if(isNaN(q)||q<=0){toast("Zadejte počet");return}
+  const e={id:uid(),dod:S.osup,cis:free?"":key,nm,ean:free?(S.freeEan||""):(r&&r[1]||""),qty:q,unit:S.ounit,note:$("#onote").value.trim()};
+  try{await ordPost({a:"ord_add",entries:[e]});
+    S.ord.rows.push([e.id,Date.now(),S.name,e.dod,e.cis,e.nm,e.ean,q,e.unit,e.note,"Zapsáno",Date.now(),S.name]);
+    if(e.cis)S.ord.map[e.cis]=e.dod;
+    toast(`Zapsáno: ${nm} · ${e.dod}`); S.freeEan=""; S.osupFor=null; S.current=null; S.query=""; S.resetCode=true; afterSave(); loadOrders();
+  }catch(err){if(err.message!=="pin")toast("Nepodařilo se zapsat. Zkontrolujte připojení a zkuste znovu.")}
+}
+function viewOrdList(){
+  const F={zap:["Zapsáno"],obj:["Objednáno"],dod:["Dodáno"],vse:["Zapsáno","Objednáno","Dodáno"]};
+  const want=F[S.ofilt]||F.zap;
+  const rows=S.ord.rows.filter(r=>want.includes(r[10]));
+  const names=S.ord.sup.map(x=>x[0]); rows.forEach(r=>{if(!names.includes(r[3]))names.push(r[3])});
+  const chips=[["zap","K objednání",ordCount("Zapsáno")],["obj","Objednáno",ordCount("Objednáno")],["dod","Dodáno",ordCount("Dodáno")],["vse","Vše",null]];
+  let h=`<section class="panel"><div class="chips">${chips.map(([k,l,c])=>`<button type="button" class="chip" data-ofilt="${k}" aria-pressed="${S.ofilt===k}">${l}${c!=null?` (${c})`:""}</button>`).join("")}</div>
+    ${S.ofilt==="dod"?`<p class="hint" style="margin:0">Dodané položky se ukazují 30 dní, pak zůstanou jen v tabulce.</p>`:""}</section>`;
+  if(!S.ord.loaded)return h+`<section class="panel"><p class="hint" style="margin:0">Načítám objednávky…</p></section>`;
+  let any=false;
+  for(const n of names){
+    const g=rows.filter(r=>r[3]===n).sort((a,b)=>a[1]-b[1]); if(!g.length)continue; any=true;
+    const si=supInfo(n), how=si[1];
+    h+=`<section class="panel"><div class="ohead"><h3>${esc(n)}</h3><span class="stag">${esc(how)}</span></div>
+      ${si[3]?`<div class="hint">${esc(si[3])}</div>`:""}
+      <div class="oacts">
+        ${S.ofilt==="zap"?(how==="Cézar"?`<button class="btn" type="button" data-supact="csv" data-sup="${esc(n)}">Stáhnout CSV pro Cézar</button>`:`<button class="btn" type="button" data-supact="copy" data-sup="${esc(n)}">Kopírovat seznam</button>`)
+          +(si[2]?`<a class="btn" href="${esc(si[2])}" target="_blank" rel="noopener">Otevřít B2B ↗</a>`:"")
+          +`<button class="btn" type="button" data-supact="allobj" data-sup="${esc(n)}">${S.oconf==="allobj|"+n?"Opravdu? Klepněte znovu":"Vše objednáno"}</button>`:""}
+        ${S.ofilt==="obj"?`<button class="btn" type="button" data-supact="alldod" data-sup="${esc(n)}">${S.oconf==="alldod|"+n?"Opravdu? Klepněte znovu":"Vše dodáno"}</button>`:""}
+      </div>
+      <div class="list">${g.map(r=>ordRow(r)).join("")}</div></section>`;
+  }
+  if(!any)h+=`<section class="panel"><p class="hint" style="margin:0">${S.ofilt==="zap"?"Nic nečeká na objednání. Nové položky zapíšete v záložce Zapsat.":"Žádné položky."}</p></section>`;
+  return h;
+}
+function ordRow(r){
+  const sel=S.osel===r[0];
+  let h=`<button type="button" class="li${sel?" sel":""}" data-oid="${esc(r[0])}"><span class="n">${esc(r[5])}</span><span class="q">${fmt(r[7])} ${esc(r[8])}</span>
+    <span class="s">${r[4]?esc(r[4])+" · ":""}${r[9]?`<b>${esc(r[9])}</b> · `:""}${esc(r[2])} ${dmy(r[1])}${S.ofilt==="vse"?` · <span class="stag ${OST[r[10]]}">${esc(r[10])}</span>`:""}${r[10]!=="Zapsáno"?` · ${esc(r[10]).toLowerCase()} ${dmy(r[11])} (${esc(r[12])})`:""}</span></button>`;
+  if(sel){
+    const id=esc(r[0]);
+    h+=`<div class="oacts">
+      ${r[10]!=="Objednáno"?`<button class="btn" type="button" data-oact="Objednáno" data-id="${id}">Objednáno</button>`:""}
+      ${r[10]!=="Dodáno"?`<button class="btn" type="button" data-oact="Dodáno" data-id="${id}">Dodáno</button>`:""}
+      ${r[10]!=="Zapsáno"?`<button class="btn" type="button" data-oact="Zapsáno" data-id="${id}">Vrátit na Zapsáno</button>`:""}
+      <button class="btn danger" type="button" data-oact="Zrušeno" data-id="${id}">${S.oconf==="del|"+r[0]?"Opravdu zrušit?":"Zrušit"}</button>
+    </div>
+    <form class="scanrow" id="oqForm" style="padding-bottom:10px"><input type="text" id="oeq" inputmode="decimal" value="${fmt(r[7])}" aria-label="Nový počet"><button class="btn" type="submit">Změnit počet</button></form>`;
+  }
+  return h;
+}
+async function ordSet(ids,patch,msg){
+  try{await ordPost(Object.assign({a:"ord_set",ids},patch));
+    S.ord.rows.forEach(r=>{if(ids.includes(r[0])){if(patch.stav)r[10]=patch.stav;if(patch.qty)r[7]=patch.qty;r[11]=Date.now();r[12]=S.name}});
+    S.ord.rows=S.ord.rows.filter(r=>r[10]!=="Zrušeno");
+    S.osel=null;S.oconf=null;toast(msg||"Uloženo");render();loadOrders();
+  }catch(err){if(err.message!=="pin")toast("Nepodařilo se uložit. Zkontrolujte připojení.")}
+}
+function ordAction(st,id,b){
+  if(st==="Zrušeno"&&S.oconf!=="del|"+id){S.oconf="del|"+id;render();return}
+  ordSet([id],{stav:st},st==="Zrušeno"?"Zrušeno":"Označeno: "+st.toLowerCase());
+}
+function supAction(act,sup,b){
+  const g=S.ord.rows.filter(r=>r[3]===sup&&r[10]===(act==="alldod"?"Objednáno":"Zapsáno"));
+  if(!g.length)return;
+  if(act==="allobj"||act==="alldod"){
+    if(S.oconf!==act+"|"+sup){S.oconf=act+"|"+sup;render();return}
+    ordSet(g.map(r=>r[0]),{stav:act==="allobj"?"Objednáno":"Dodáno"},`${sup}: ${g.length} pol. ${act==="allobj"?"objednáno":"dodáno"}`);return;
+  }
+  if(act==="csv"){
+    const ok=g.filter(r=>r[4]), bal=ok.filter(r=>r[8]==="bal"), skip=g.length-ok.length;
+    const lines=ok.map(r=>r[4]+";"+String(Math.round(r[7]*1000)/1000));
+    const d=new Date(),name=`Objednavka-${sup.replace(/[^A-Za-z0-9]+/g,"_")}-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}.csv`;
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([lines.join("\r\n")+"\r\n"],{type:"text/csv"}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);
+    toast(`${lines.length} řádků uloženo`+(bal.length?` · ${bal.length} v baleních – zkontrolujte počet`:"")+(skip?` · ${skip} bez kódu zadejte ručně`:""));return;
+  }
+  if(act==="copy"){
+    const txt=`Objednávka ${sup} – ${new Date().toLocaleDateString("cs-CZ")}\n`+g.map(r=>`${r[5]} – ${fmt(r[7])} ${r[8]==="bal"?"bal.":"ks"}${r[9]?" ("+r[9]+")":""}${r[6]?" · EAN "+r[6]:""}${r[4]?" · "+r[4]:""}`).join("\n");
+    (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast("Seznam zkopírován, vložte ho kam potřebujete")).catch(()=>{toast("Kopírování nejde, seznam je níže");const p=document.createElement("textarea");p.value=txt;p.style.cssText="width:100%;height:160px;margin-top:8px";b.closest("section").appendChild(p);p.select()});
+  }
+}
+function goModule(m){
+  if(S.cam)camStop();
+  S.module=["inventura","objednavky"].includes(m)?m:"home";
+  S.current=null;S.choices=null;S.results=null;S.notFound=null;S.query="";
+  if(S.module==="objednavky")loadOrders();
+  const want=S.module==="home"?"":"#"+S.module;
+  if(location.hash!==want)history.replaceState(null,"",location.pathname+location.search+want);
+  render();window.scrollTo(0,0);
+}
+window.addEventListener("hashchange",()=>{const m=modFromHash();if(m!==S.module)goModule(m)});
 function viewLogin(){
   if(S.newPin)return `<section class="panel"><h2>Váš osobní PIN</h2>
     <p style="margin:0">Jste přihlášen jako <b>${esc(S.name)}</b>. Na jiném telefonu se přihlásíte tímto PINem:</p>
@@ -575,7 +789,7 @@ function setUser(name,pin){S.name=name;S.pin=pin;store.set("user",{name,pin});S.
 async function doLogin(name,pin){
   pin=String(pin||"").trim(); if(!pin){S.loginMsg="Zadejte PIN.";render();return}
   try{const r=await apiPost({a:"login",name,pin});
-    if(r.ok){setUser(r.name,pin);render();flush();toast("Přihlášen: "+r.name)}
+    if(r.ok){setUser(r.name,pin);render();flush();loadOrders();toast("Přihlášen: "+r.name)}
     else if(r.err==="pin"){S.loginMsg="Špatný PIN.";render()}
     else{S.loginMsg="Přihlášení se nepovedlo ("+(r.err||"chyba")+").";render()}
   }catch(e){S.loginMsg="Bez spojení s tabulkou. Zkuste to za chvíli.";render()}
@@ -583,13 +797,13 @@ async function doLogin(name,pin){
 async function doJoin(name,hostpin){
   name=String(name||"").trim(); if(!name){S.loginMsg="Napište své jméno.";render();return}
   try{const r=await apiPost({a:"join",name,hostpin:String(hostpin||"").trim()});
-    if(r.ok){setUser(r.name,r.pin);S.newPin=r.pin;render();loadPeople()}
+    if(r.ok){setUser(r.name,r.pin);S.newPin=r.pin;render();loadPeople();loadOrders()}
     else S.loginMsg=r.err==="hostpin"?"Špatný PIN pro pomocníky.":r.err==="exists"?"Toto jméno už v seznamu je. Vyberte ho na seznamu, nebo přidejte příjmení.":"Přihlášení se nepovedlo.",render();
   }catch(e){S.loginMsg="Bez spojení s tabulkou. Zkuste to za chvíli.";render()}
 }
 function logout(msg){
   if(S.cam)camStop();
-  S.name="";S.pin="";store.set("user",null);S.view="scan";S.current=null;S.loginMode="pick";
+  S.name="";S.pin="";store.set("user",null);S.view="scan";S.module="home";S.current=null;S.loginMode="pick";
   if(msg)toast(msg); render(); loadPeople();
 }
 function overviewRows(){
@@ -706,11 +920,20 @@ document.addEventListener("click",async e=>{
   if(b.dataset.view){S.view=b.dataset.view;if(S.view!=="scan"&&S.cam)camStop();render();window.scrollTo(0,0);return}
   if(b.dataset.pick){if(b.dataset.go)S.view="scan";pick(b.dataset.pick);if(!S.cam)window.scrollTo(0,0);return}
   if(b.dataset.step){const q=$("#qty");const v=parseQ(q.value)||0;q.value=fmt(Math.max(0,v+ +b.dataset.step));return}
+  if(b.dataset.mod){goModule(b.dataset.mod);return}
+  if(b.dataset.oview){if(S.cam&&b.dataset.oview!=="add")camStop();S.oview=b.dataset.oview;S.osel=null;S.oconf=null;render();window.scrollTo(0,0);return}
+  if(b.dataset.osup){S.osup=b.dataset.osup;render();return}
+  if(b.dataset.ounit){S.ounit=b.dataset.ounit;render();return}
+  if(b.dataset.ofilt){S.ofilt=b.dataset.ofilt;S.osel=null;S.oconf=null;render();return}
+  if(b.dataset.oid){S.osel=S.osel===b.dataset.oid?null:b.dataset.oid;S.oconf=null;render();return}
+  if(b.dataset.oact){ordAction(b.dataset.oact,b.dataset.id,b);return}
+  if(b.dataset.supact){supAction(b.dataset.supact,b.dataset.sup,b);return}
   if(b.dataset.who){S.loginName=b.dataset.who;S.loginMode="pin";S.loginMsg="";render();requestAnimationFrame(()=>$("#pinIn")&&$("#pinIn").focus());return}
   if(b.dataset.ovf){S.ovFilter=b.dataset.ovf;render();return}
   if(b.dataset.ova){S.ovArea=b.dataset.ova;render();return}
   switch(b.id){
-    case "whoBtn":if(S.name){S.view="settings";render();window.scrollTo(0,0)}break;
+    case "whoBtn":if(S.name){if(S.module==="inventura")S.view="settings";render();window.scrollTo(0,0)}break;
+    case "homeBtn":goModule("home");break;
     case "logoutBtn":logout("Odhlášeno");break;
     case "joinMode":S.loginMode="join";S.loginMsg="";render();break;
     case "pickMode":S.loginMode="pick";S.loginMsg="";render();break;
@@ -723,6 +946,7 @@ document.addEventListener("click",async e=>{
     case "delBtn":{const m=myQ(S.current);if(!m)break;if(S.confirmDel!==S.current){S.confirmDel=S.current;b.textContent="Opravdu smazat? Klepněte znovu";setTimeout(()=>{if(S.confirmDel){S.confirmDel=null;const x=$("#delBtn");if(x)x.textContent="Smazat můj počet ("+fmt(myQ(S.current))+")"}},4000);break}
       S.confirmDel=null;setQ(S.current,0);toast("Smazáno: "+itemName(S.current));afterSave();break}
     case "exportBtn":exportXlsx();break;
+    case "freeBtn":S.current="__free__";S.freeEan=S.notFound||"";S.notFound=null;S.choices=null;S.results=null;render();break;
     case "csvBtn":exportCsv();break;
     case "reloadCat":loadCatalog();toast("Načítám seznam zboží…");break;
     case "copyLink":try{await navigator.clipboard.writeText(shareLink());toast("Odkaz zkopírován")}catch(err){toast("Kopírování nejde, podržte prst na QR kódu.")}break;
@@ -731,6 +955,8 @@ document.addEventListener("click",async e=>{
 document.addEventListener("submit",e=>{
   e.preventDefault();const f=e.target;
   if(f.id==="codeForm"){const v=fixScanner($("#code").value);handleCode(v,{fromScan:/^\d{8,14}$/.test(v)})}
+  else if(f.id==="ordForm")submitOrder();
+  else if(f.id==="oqForm"){const v=parseQ($("#oeq").value);if(isNaN(v)||v<=0){toast("Zadejte počet");return}ordSet([S.osel],{qty:v},"Počet změněn")}
   else if(f.id==="qtyForm"){const v=parseQ($("#qty").value);if(isNaN(v)||v===0){toast("Zadejte počet");return}addQ(S.current,v);afterSave()}
   else if(f.id==="pinForm")doLogin(S.loginName,$("#pinIn").value);
   else if(f.id==="joinForm")doJoin($("#joinName").value,$("#joinPin").value);
@@ -749,8 +975,9 @@ window.addEventListener("online",()=>{flush();poll()});
 let started=false;
 async function start(){
   render(); if(!API||started)return; started=true;
-  loadPeople(); await loadCatalog(); poll(); flush();
+  loadPeople(); await loadCatalog(); poll(); flush(); loadOrders();
   setInterval(()=>{if(!document.hidden){poll();flush()}},5000);
+  setInterval(()=>{if(!document.hidden&&S.module==="objednavky"&&S.name)loadOrders()},10000);
 }
 start();
 if("serviceWorker" in navigator&&location.protocol==="https:"){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})})}
