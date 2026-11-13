@@ -138,6 +138,11 @@ h1 .logo{width:30px;height:30px;border-radius:6px;background:#fff;flex:none}
 .oacts{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 10px}
 .oacts .btn{padding:10px 12px;font-size:14px}
 .li.sel{background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+.ofix{display:flex;flex-direction:column;gap:6px}
+.ofix label{font:700 15px/1 var(--f-label);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ofix select{font:600 18px/1.2 var(--f-ui);width:100%;padding:11px 12px;border-radius:8px;border:1.5px solid var(--line);background:var(--bg);color:var(--fg);min-width:0}
+.ofix.on select{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);font:inherit;text-decoration:underline;cursor:pointer}
 .warnbox{font-size:14px;padding:9px 11px;border-radius:8px;background:color-mix(in srgb,var(--warn) 16%,var(--surface))}
 .hello{font:700 26px/1.15 var(--f-label);margin:4px 0 0;letter-spacing:.02em}
 #qr{align-self:center;background:#fff;padding:10px;border-radius:8px}
@@ -182,7 +187,7 @@ let KEY=URLP.get("k")||store.get("k","");
 if(URLP.get("api")){store.set("api",API);store.set("k",KEY)}
 
 const S={
-  module:modFromHash(), oview:"add", ofilt:"zap", osel:null, oconf:null, ord:{sup:[],rows:[],map:{},loaded:false}, osup:null, ounit:"ks", view:"scan", area:store.get("area","OBCHOD"), name:(store.get("user",null)||{}).name||"", pin:(store.get("user",null)||{}).pin||"", fast:store.get("fast",false),
+  module:modFromHash(), oview:"add", ofilt:"zap", osel:null, oconf:null, ord:{sup:[],rows:[],map:{},loaded:false}, osup:null, ounit:"ks", ofix:store.get("ofix",""), ochange:false, view:"scan", area:store.get("area","OBCHOD"), name:(store.get("user",null)||{}).name||"", pin:(store.get("user",null)||{}).pin||"", fast:store.get("fast",false),
   people:null, loginName:"", loginMode:"pick", loginMsg:"", newPin:null,
   dev:store.get("dev",null),
   conn:API?"connecting":"none", lastOk:0,
@@ -624,7 +629,10 @@ async function ordPost(body){
   return r;
 }
 function viewOrdAdd(){
+  const sups=S.ord.sup.length?S.ord.sup:[];
   let h=`<section class="panel">
+    <div class="ofix${S.ofix?" on":""}"><label for="ofix">Objednávám od</label>
+      <select id="ofix" aria-label="Objednávám od"><option value="">— podle zboží —</option>${sups.map(x=>`<option value="${esc(x[0])}"${S.ofix===x[0]?" selected":""}>${esc(x[0])} (${esc(x[1])})</option>`).join("")}</select></div>
     ${S.cam?"":`<button class="btn primary big" type="button" id="camStart">Skenovat kamerou</button>`}
     <form class="scanrow" id="codeForm" autocomplete="off">
       <input type="search" id="code" inputmode="search" placeholder="EAN, číslo zboží nebo název" value="${esc(S.query)}" aria-label="Kód nebo název zboží" enterkeyhint="search">
@@ -637,9 +645,9 @@ function viewOrdAdd(){
   if(S.notFound)h+=`<section class="panel" id="card"><h2>Nenalezeno</h2><p style="margin:0">„<span class="code">${esc(S.notFound)}</span>“ v seznamu zboží není. Zkuste napsat část názvu, nebo zboží zapište ručně.</p>
     <button class="btn" type="button" id="freeBtn">Zapsat ručně</button>${S.cam?`<button class="btn" type="button" id="resume">Skenovat dál</button>`:""}</section>`;
   if(S.current)h+=orderCard(S.current);
-  const mine=S.ord.rows.filter(r=>r[10]==="Zapsáno"&&r[2]===S.name).sort((a,b)=>b[1]-a[1]);
-  h+=`<section class="panel"><div class="row" style="justify-content:space-between"><h2>Moje zápisy k objednání</h2><span class="hint">${mine.length} pol.</span></div>
-    ${mine.length?`<div class="list">${mine.slice(0,15).map(r=>`<div class="li" style="cursor:default"><span class="n">${esc(r[5])}</span><span class="q">${fmt(r[7])} ${esc(r[8])}</span><span class="s">${esc(r[3])}${r[9]?" · "+esc(r[9]):""} · ${dmy(r[1])}</span></div>`).join("")}</div>`
+  const mine=S.ord.rows.filter(r=>r[10]==="Zapsáno"&&(S.ofix?r[3]===S.ofix:r[2]===S.name)).sort((a,b)=>b[1]-a[1]);
+  h+=`<section class="panel"><div class="row" style="justify-content:space-between"><h2>${S.ofix?esc(S.ofix)+" – k objednání":"Moje zápisy k objednání"}</h2><span class="hint">${mine.length} pol.</span></div>
+    ${mine.length?`<div class="list">${mine.slice(0,15).map(r=>`<div class="li" style="cursor:default"><span class="n">${esc(r[5])}</span><span class="q">${fmt(r[7])} ${esc(r[8])}</span><span class="s">${S.ofix?esc(r[2]):esc(r[3])}${r[9]?" · "+esc(r[9]):""} · ${dmy(r[1])}</span></div>`).join("")}</div>`
     :`<p class="hint" style="margin:0">Naskenujte nebo vyhledejte zboží, které dochází, vyberte dodavatele a počet. Všichni pak vidí, co je potřeba objednat.</p>`}</section>`;
   return h;
 }
@@ -648,14 +656,16 @@ function ordLi(i){const r=S.catalog[i];const open=S.ord.rows.filter(x=>x[4]===r[
 function orderCard(key){
   const free=key==="__free__", r=free?null:itemRow(key);
   const open=free?[]:S.ord.rows.filter(x=>x[4]===key&&(x[10]==="Zapsáno"||x[10]==="Objednáno"));
-  if(S.osupFor!==key){S.osupFor=key;S.osup=free?null:(S.ord.map[key]||null);S.ounit="ks"}
+  if(S.osupFor!==key){S.osupFor=key;S.osup=S.ofix||(free?null:(S.ord.map[key]||null));S.ounit="ks";S.ochange=false}
+  const showSup=!S.ofix||S.ochange||S.osup!==S.ofix;
   const sups=S.ord.sup.length?S.ord.sup:[["Ostatní","Jinak","",""]];
   return `<section class="panel flash" id="card">
     ${free?`<h2>Zboží bez kódu</h2><input type="text" id="ofree" placeholder="Název zboží (např. S2000 0110 7 l)" aria-label="Název zboží">`
       :`<div><p class="item-name">${esc(r?r[0]:key)}</p><div class="code">${esc(key)}${r&&r[1]?" · EAN "+esc(r[1]):""} · v Cézaru ${fmt(r?+r[3]||0:0)}</div></div>`}
     ${open.length?`<div class="warnbox">Už je v objednávkách: ${open.map(o=>`<b>${esc(o[2])}</b> ${fmt(o[7])} ${esc(o[8])} · ${esc(o[3])} · ${esc(o[10]).toLowerCase()} ${dmy(o[10]==="Objednáno"?o[11]:o[1])}`).join("; ")}</div>`:""}
-    <div><h2 style="margin-bottom:8px">Dodavatel${!free&&S.ord.map[key]?` <span class="hint" style="text-transform:none;letter-spacing:0">(naposledy ${esc(S.ord.map[key])})</span>`:""}</h2>
-      <div class="supgrid">${sups.map(x=>`<button type="button" class="chip" data-osup="${esc(x[0])}" aria-pressed="${S.osup===x[0]}">${esc(x[0])}<small>${esc(x[1])}</small></button>`).join("")}</div></div>
+    ${showSup?`<div><h2 style="margin-bottom:8px">Dodavatel${!free&&S.ord.map[key]?` <span class="hint" style="text-transform:none;letter-spacing:0">(naposledy ${esc(S.ord.map[key])})</span>`:""}</h2>
+      <div class="supgrid">${sups.map(x=>`<button type="button" class="chip" data-osup="${esc(x[0])}" aria-pressed="${S.osup===x[0]}">${esc(x[0])}<small>${esc(x[1])}</small></button>`).join("")}</div></div>`
+      :`<div class="row" style="justify-content:space-between"><span>Dodavatel: <b>${esc(S.osup)}</b>${!free&&S.ord.map[key]&&S.ord.map[key]!==S.osup?` <span class="hint">(naposledy ${esc(S.ord.map[key])})</span>`:""}</span><button type="button" class="linkbtn" id="ochange">změnit</button></div>`}
     <form id="ordForm" style="display:flex;flex-direction:column;gap:8px" autocomplete="off">
       <div class="qty"><button type="button" class="btn" data-step="-1" aria-label="Méně">−</button><input type="text" inputmode="decimal" id="qty" value="1" aria-label="Počet" enterkeyhint="done"><button type="button" class="btn" data-step="1" aria-label="Více">+</button></div>
       <div class="chips"><button type="button" class="chip" data-ounit="ks" aria-pressed="${S.ounit==="ks"}">kusů</button><button type="button" class="chip" data-ounit="bal" aria-pressed="${S.ounit==="bal"}">balení / kartonů</button></div>
@@ -946,6 +956,7 @@ document.addEventListener("click",async e=>{
     case "delBtn":{const m=myQ(S.current);if(!m)break;if(S.confirmDel!==S.current){S.confirmDel=S.current;b.textContent="Opravdu smazat? Klepněte znovu";setTimeout(()=>{if(S.confirmDel){S.confirmDel=null;const x=$("#delBtn");if(x)x.textContent="Smazat můj počet ("+fmt(myQ(S.current))+")"}},4000);break}
       S.confirmDel=null;setQ(S.current,0);toast("Smazáno: "+itemName(S.current));afterSave();break}
     case "exportBtn":exportXlsx();break;
+    case "ochange":S.ochange=true;render();break;
     case "freeBtn":S.current="__free__";S.freeEan=S.notFound||"";S.notFound=null;S.choices=null;S.results=null;render();break;
     case "csvBtn":exportCsv();break;
     case "reloadCat":loadCatalog();toast("Načítám seznam zboží…");break;
@@ -967,7 +978,8 @@ document.addEventListener("submit",e=>{
     catch(err){toast("Tohle není odkaz z tabulky. Musí obsahovat api= a k=.")}
   }
 });
-document.addEventListener("change",e=>{if(e.target.id==="fast"){S.fast=e.target.checked;store.set("fast",S.fast)}});
+document.addEventListener("change",e=>{if(e.target.id==="fast"){S.fast=e.target.checked;store.set("fast",S.fast)}
+  if(e.target.id==="ofix"){S.ofix=e.target.value;store.set("ofix",S.ofix);S.osupFor=null;render();toast(S.ofix?"Zapisujete pro: "+S.ofix:"Dodavatel podle zboží")}});
 let ovT;document.addEventListener("input",e=>{if(e.target.id==="ovq"){S.ovQuery=e.target.value;clearTimeout(ovT);ovT=setTimeout(render,250)}});
 document.addEventListener("visibilitychange",()=>{if(document.hidden){if(S.cam)camStop()}else if(API){poll();flush()}});
 window.addEventListener("online",()=>{flush();poll()});
