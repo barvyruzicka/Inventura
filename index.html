@@ -519,7 +519,7 @@ function render(){
 }
 function renderStatus(){
   const m=[]; const wait=S.pending.filter(p=>!S.seen.has(p.id)).length;
-  if(S.conn==="key")m.push(`<div class="banner bad">Tabulka odmítla klíč v odkazu. Otevřete znovu odkaz z tabulky (menu Inventura → Odkaz pro telefony).</div>`);
+  if(S.conn==="key")m.push(`<div class="banner bad">Tabulka odmítla klíč v odkazu. Otevřete znovu odkaz z tabulky (menu BLR App → 2) Odkaz pro telefony).</div>`);
   else if(S.conn==="offline")m.push(`<div class="banner warn">Bez spojení s tabulkou.${wait?` ${wait} ${wait===1?"zápis čeká":wait<5?"zápisy čekají":"zápisů čeká"} v telefonu a odešle se samo.`:""}</div>`);
   if(S.catState==="empty")m.push(`<div class="banner warn">V tabulce chybí seznam zboží. Vložte export z Cézara do listu „Katalog“.</div>`);
   if(S.catError)m.push(`<div class="banner bad">${esc(S.catError)}</div>`);
@@ -528,7 +528,7 @@ function renderStatus(){
 }
 function viewSetup(){
   return `<section class="panel"><h2>Propojení s tabulkou</h2>
-  <p style="margin:0">Stránka ještě neví, kam zapisovat. Otevřete odkaz, který zobrazí Google tabulka v menu <b>Inventura → Odkaz pro telefony</b>, nebo naskenujte QR kód z jiného telefonu. Případně odkaz vložte sem:</p>
+  <p style="margin:0">Stránka ještě neví, kam zapisovat. Otevřete odkaz, který zobrazí Google tabulka v menu <b>BLR App → 2) Odkaz pro telefony</b>, nebo naskenujte QR kód z jiného telefonu. Případně odkaz vložte sem:</p>
   <form class="scanrow" id="setupForm"><input type="url" id="setupIn" placeholder="https://…?api=…&k=…"><button class="btn primary" type="submit">Připojit</button></form></section>`;
 }
 function viewScan(){
@@ -778,7 +778,7 @@ function viewLogin(){
     <button class="btn" type="button" id="pickMode">Zpět na seznam jmen</button></section>`;
   const names=S.people;
   return `<section class="panel"><h2>Kdo počítá?</h2>${msg}
-    ${names==null?`<p class="hint" style="margin:0">Načítám seznam lidí…</p>`:names.length?`<div class="chips">${names.map(n=>`<button type="button" class="chip" style="font-size:17px;padding:13px 16px" data-who="${esc(n)}">${esc(n)}</button>`).join("")}</div>`:`<p class="hint" style="margin:0">V tabulce zatím nikdo není. Majitel spustí Inventura → 1) Připravit tabulku.</p>`}
+    ${names==null?`<p class="hint" style="margin:0">Načítám seznam lidí…</p>`:names.length?`<div class="chips">${names.map(n=>`<button type="button" class="chip" style="font-size:17px;padding:13px 16px" data-who="${esc(n)}">${esc(n)}</button>`).join("")}</div>`:`<p class="hint" style="margin:0">V tabulce zatím nikdo není. Majitel spustí v tabulce BLR App → 1) Připravit tabulku.</p>`}
     <button class="btn" type="button" id="joinMode">Nový pomocník</button></section>`;
 }
 async function loadPeople(){
@@ -862,7 +862,7 @@ function viewSettings(){
     <dt>Čeká na odeslání</dt><dd>${fmt(wait)}</dd>
     <dt>Toto zařízení</dt><dd class="code">${esc(S.dev)}</dd></dl>
     <button class="btn" type="button" id="reloadCat">Načíst seznam zboží znovu</button>
-    <p class="hint" style="margin:0">Seznam zboží se mění v Google tabulce v listu „Katalog“. Novou inventuru spustíte tamtéž v menu Inventura.</p></section>`;
+    <p class="hint" style="margin:0">Seznam zboží se mění v Google tabulce v listu „Katalog“. Novou inventuru spustíte tamtéž v menu BLR App.</p></section>`;
   h+=`<section class="panel"><h2>Jak počítat</h2><ol class="steps">
     <li>Nahoře vyberte úsek, ve kterém právě počítáte.</li>
     <li>Klepněte na <b>Skenovat kamerou</b> a namiřte telefon na čárový kód. Po pípnutí se ukáže zboží.</li>
