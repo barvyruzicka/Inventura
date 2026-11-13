@@ -586,17 +586,17 @@ const ICONS={
   dl:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>'
 };
 function viewHome(){
-  let mine=0,pcs=0;for(const a of AREAS){const it=itemsOf(a.id+"~"+pkey(S.name));for(const k in it)if(+it[k].q>0){mine++;pcs+=+it[k].q}}
+  const mk=new Set();let pcs=0;for(const a of AREAS){const it=itemsOf(a.id+"~"+pkey(S.name));for(const k in it)if(+it[k].q>0){mk.add(k);pcs+=+it[k].q}}const mine=mk.size;
   const t=totals();let all=0;for(const [,o] of t)if(o.ALL>0)all++;
   const h=new Date().getHours(), greet=h<10?"Dobré ráno":h<18?"Dobrý den":"Dobrý večer";
   return `<section style="display:flex;flex-direction:column;gap:4px;padding-top:6px"><p class="hint" style="margin:0">Barvy Laky Růžička · Třebíč</p><p class="hello">${greet}, ${esc(S.name)}</p></section>
   <section class="tiles">
-    <button type="button" class="tile" data-mod="inventura"><span class="ic" style="--c:var(--sklad)">${ICONS.inv}</span>
-      <span><b>Inventura</b><small>${all?`Spočítáno celkem ${fmt(all)} pol. · moje ${fmt(mine)} pol. / ${fmt(pcs)} ks`:"Počítání skladu, export do Cézaru"}</small></span><span class="go">›</span></button>
     <button type="button" class="tile" data-mod="objednavky"><span class="ic" style="--c:var(--obchod)">${ICONS.obj}</span>
       <span><b>Objednávky</b><small>${S.ord.loaded?(ordCount("Zapsáno")?`K objednání ${fmt(ordCount("Zapsáno"))} pol.`:"Nic nečeká na objednání")+(ordCount("Objednáno")?` · objednáno ${fmt(ordCount("Objednáno"))}`:""):"Sešit objednávek podle dodavatelů"}</small></span><span class="go">›</span></button>
     <div class="tile soon" aria-disabled="true"><span class="ic" style="--c:var(--michr)">${ICONS.dl}</span>
       <span><b>Dodací listy</b><small>Odběry firem na dodák, měsíční fakturace</small><span class="tag">Připravujeme</span></span></div>
+    <button type="button" class="tile" data-mod="inventura"><span class="ic" style="--c:var(--sklad)">${ICONS.inv}</span>
+      <span><b>Inventura</b><small>${all?`Spočítáno celkem ${fmt(all)} pol. · moje ${fmt(mine)} pol. / ${fmt(pcs)} ks`:"Počítání skladu, export do Cézaru"}</small></span><span class="go">›</span></button>
   </section>
   <section class="panel"><div class="row" style="justify-content:space-between"><span>Přihlášený: <b>${esc(S.name)}</b></span><button class="btn" type="button" id="logoutBtn">Odhlásit</button></div>
     <p class="hint" style="margin:0">${S.catalog.length?`Katalog zboží: ${fmt(S.catalog.length)} položek${S.catAt?" · "+esc(S.catAt):""}`:"Načítám katalog zboží…"}</p></section>`;
