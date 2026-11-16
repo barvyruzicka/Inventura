@@ -612,7 +612,9 @@ function viewHome(){
 }
 /* ================= OBJEDNÁVKY ================= */
 const OST={"Zapsáno":"zap","Objednáno":"obj","Dodáno":"dod","Zrušeno":"zru"};
-function ordCount(st){return S.ord.rows.filter(r=>r[10]===st).length}
+const OBJ_DNI=30;
+function ordVis(r){return r[10]==="Zapsáno"||(r[10]==="Objednáno"&&Date.now()-(+new Date(r[11])||0)<OBJ_DNI*864e5)}
+function ordCount(st){return S.ord.rows.filter(r=>r[10]===st&&ordVis(r)).length}
 function supInfo(n){return S.ord.sup.find(x=>x[0]===n)||[n,"Jinak","",""]}
 const dmy=t=>{if(!t)return"";const d=new Date(t);return d.getDate()+". "+(d.getMonth()+1)+"."};
 let ordBusy=false;
@@ -712,13 +714,14 @@ async function submitOrder(){
   finally{S.osaving=false}
 }
 function viewOrdList(){
-  const F={zap:["Zapsáno"],obj:["Objednáno"],dod:["Dodáno"],vse:["Zapsáno","Objednáno","Dodáno"]};
-  const want=F[S.ofilt]||F.zap;
-  const rows=S.ord.rows.filter(r=>want.includes(r[10]));
+  const F={zap:["Zapsáno"],obj:["Objednáno"],vse:["Zapsáno","Objednáno"]};
+  if(!F[S.ofilt])S.ofilt="zap";
+  const want=F[S.ofilt];
+  const rows=S.ord.rows.filter(r=>want.includes(r[10])&&ordVis(r));
   const names=S.ord.sup.map(x=>x[0]); rows.forEach(r=>{if(!names.includes(r[3]))names.push(r[3])});
-  const chips=[["zap","K objednání",ordCount("Zapsáno")],["obj","Objednáno",ordCount("Objednáno")],["dod","Dodáno",ordCount("Dodáno")],["vse","Vše",null]];
+  const chips=[["zap","K objednání",ordCount("Zapsáno")],["obj","Objednáno",ordCount("Objednáno")],["vse","Vše",null]];
   let h=`<section class="panel"><div class="chips">${chips.map(([k,l,c])=>`<button type="button" class="chip" data-ofilt="${k}" aria-pressed="${S.ofilt===k}">${l}${c!=null?` (${c})`:""}</button>`).join("")}</div>
-    ${S.ofilt==="dod"?`<p class="hint" style="margin:0">Dodané položky se ukazují 30 dní, pak zůstanou jen v tabulce.</p>`:""}</section>`;
+    ${S.ofilt==="obj"?`<p class="hint" style="margin:0">Objednané položky se ukazují ${OBJ_DNI} dní, pak zůstanou jen v tabulce.</p>`:""}</section>`;
   if(!S.ord.loaded)return h+`<section class="panel"><p class="hint" style="margin:0">Načítám objednávky…</p></section>`;
   let any=false;
   for(const n of names){
@@ -730,7 +733,7 @@ function viewOrdList(){
         ${S.ofilt==="zap"?(how==="Cézar"?`<button class="btn" type="button" data-supact="csv" data-sup="${esc(n)}">Stáhnout CSV pro Cézar</button>`:`<button class="btn" type="button" data-supact="copy" data-sup="${esc(n)}">Kopírovat seznam</button>`)
           +(si[2]?`<a class="btn" href="${esc(si[2])}" target="_blank" rel="noopener">Otevřít B2B ↗</a>`:"")
           +`<button class="btn" type="button" data-supact="allobj" data-sup="${esc(n)}">${S.oconf==="allobj|"+n?"Opravdu? Klepněte znovu":"Vše objednáno"}</button>`:""}
-        ${S.ofilt==="obj"?`<button class="btn" type="button" data-supact="alldod" data-sup="${esc(n)}">${S.oconf==="alldod|"+n?"Opravdu? Klepněte znovu":"Vše dodáno"}</button>`:""}
+        ${S.ofilt!=="vse"?`<button class="btn danger" type="button" data-supact="alldel" data-sup="${esc(n)}">${S.oconf==="alldel|"+n?`Opravdu smazat ${g.length} pol.?`:"Smazat celou objednávku"}</button>`:""}
       </div>
       <div class="list">${g.map(r=>ordRow(r)).join("")}</div></section>`;
   }
@@ -745,7 +748,6 @@ function ordRow(r){
     const id=esc(r[0]);
     h+=`<div class="oacts">
       ${r[10]!=="Objednáno"?`<button class="btn" type="button" data-oact="Objednáno" data-id="${id}">Objednáno</button>`:""}
-      ${r[10]!=="Dodáno"?`<button class="btn" type="button" data-oact="Dodáno" data-id="${id}">Dodáno</button>`:""}
       ${r[10]!=="Zapsáno"?`<button class="btn" type="button" data-oact="Zapsáno" data-id="${id}">Vrátit na Zapsáno</button>`:""}
       <button class="btn danger" type="button" data-oact="Zrušeno" data-id="${id}">${S.oconf==="del|"+r[0]?"Opravdu zrušit?":"Zrušit"}</button>
     </div>
@@ -765,7 +767,11 @@ function ordAction(st,id,b){
   ordSet([id],{stav:st},st==="Zrušeno"?"Zrušeno":"Označeno: "+st.toLowerCase());
 }
 async function supAction(act,sup,b){
-  const g=S.ord.rows.filter(r=>r[3]===sup&&r[10]===(act==="alldod"?"Objednáno":"Zapsáno"));
+  const g=S.ord.rows.filter(r=>r[3]===sup&&ordVis(r)&&r[10]===(act==="alldel"&&S.ofilt==="obj"?"Objednáno":"Zapsáno"));
+  if(act==="alldel"){
+    if(S.oconf!=="alldel|"+sup){S.oconf="alldel|"+sup;render();return}
+    ordSet(g.map(r=>r[0]),{stav:"Zrušeno"},`${sup}: smazáno ${g.length} pol.`);return;
+  }
   if(!g.length)return;
   if(act==="allobj"||act==="alldod"){
     if(S.oconf!==act+"|"+sup){S.oconf=act+"|"+sup;render();return}
