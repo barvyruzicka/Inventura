@@ -639,11 +639,11 @@ function viewOrdAdd(){
     return `<section class="panel"><h2>1. Od koho objednáváte?</h2>
       ${S.ord.loaded?"":`<p class="hint" style="margin:0">Načítám dodavatele…</p>`}
       <div class="tiles">${sups.map(x=>`<button type="button" class="tile sup" data-ofix="${esc(x[0])}"><span><b>${esc(x[0])}</b><small>${esc(x[1])}${x[3]?" · "+esc(x[3]):""}</small></span><span class="go">${cnt(x[0])?`<span class="stag">${cnt(x[0])} k obj.</span> `:""}›</span></button>`).join("")}
-      <button type="button" class="tile sup" data-ofix="*" style="border-style:dashed"><span><b>Různé zboží</b><small>dodavatele vyberu u každé položky</small></span><span class="go">›</span></button></div></section>`;
+      <button type="button" class="tile sup" data-ofix="*" style="border-style:dashed"><span><b>Od více dodavatelů</b><small>dodavatele vyberu až u každé položky</small></span><span class="go">›</span></button></div></section>`;
   }
   const fx=S.ofix!=="*"?S.ofix:"";
   let h=`<section class="panel">
-    <div class="ofixbar"><span><small>Objednávka pro</small><b>${fx?esc(fx):"Různé zboží"}</b></span><button type="button" class="btn" id="ofixChange">Změnit</button></div>
+    <div class="ofixbar"><span><small>Objednávka pro</small><b>${fx?esc(fx):"Více dodavatelů"}</b></span><button type="button" class="btn" id="ofixChange">Změnit</button></div>
     ${S.cam?"":`<button class="btn primary big" type="button" id="camStart">Skenovat kamerou</button>`}
     <form class="scanrow" id="codeForm" autocomplete="off">
       <input type="search" id="code" inputmode="search" placeholder="EAN, číslo zboží nebo název" value="${esc(S.query)}" aria-label="Kód nebo název zboží" enterkeyhint="search">
