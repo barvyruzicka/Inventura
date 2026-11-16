@@ -662,42 +662,54 @@ function viewOrdAdd(){
     :`<p class="hint" style="margin:0">${fx?"Naskenujte nebo vyhledejte zboží od "+esc(fx)+" a zadejte počet.":"Naskenujte nebo vyhledejte zboží, vyberte dodavatele a počet."} Všichni pak vidí, co je potřeba objednat.</p>`}</section>`;
   return h;
 }
-function ordLi(i){const r=S.catalog[i];const open=S.ord.rows.filter(x=>x[4]===r[2]&&(x[10]==="Zapsáno"||x[10]==="Objednáno"));
+function ordLi(i){const r=S.catalog[i];const open=S.ord.rows.filter(x=>x[4]===r[2]&&x[10]==="Zapsáno");
   return `<button type="button" class="li" data-pick="${esc(r[2])}"><span class="n">${esc(r[0])}</span><span class="q">${fmt(+r[3]||0)}</span><span class="s">${esc(r[2])}${r[1]?" · "+esc(r[1]):""}${open.length?` · <span class="stag ${OST[open[0][10]]}">${esc(open[0][10])}</span>`:""}</span></button>`}
 function orderCard(key){
   const free=key==="__free__", r=free?null:itemRow(key);
-  const open=free?[]:S.ord.rows.filter(x=>x[4]===key&&(x[10]==="Zapsáno"||x[10]==="Objednáno"));
+  let open=free?[]:S.ord.rows.filter(x=>x[4]===key&&x[10]==="Zapsáno");
   const fx=S.ofix&&S.ofix!=="*"?S.ofix:"";
   if(S.osupFor!==key){S.osupFor=key;S.osup=fx||(free?null:(S.ord.map[key]||null));S.ounit="ks";S.ochange=false}
   const showSup=!fx||S.ochange||S.osup!==fx;
+  const dup=ordDup(key);
+  if(dup&&S.odupFor!==dup[0]){S.odupFor=dup[0];S.ounit=dup[8]==="bal"?"bal":"ks"}
+  if(!dup&&S.odupFor){S.odupFor=null}
   const sups=S.ord.sup.length?S.ord.sup:[["Ostatní","Jinak","",""]];
   return `<section class="panel flash" id="card">
     ${free?`<h2>Zboží bez kódu</h2><input type="text" id="ofree" placeholder="Název zboží (např. S2000 0110 7 l)" aria-label="Název zboží">`
       :`<div><p class="item-name">${esc(r?r[0]:key)}</p><div class="code">${esc(key)}${r&&r[1]?" · EAN "+esc(r[1]):""} · v Cézaru ${fmt(r?+r[3]||0:0)}</div></div>`}
-    ${open.length?`<div class="warnbox">Už je v objednávkách: ${open.map(o=>`<b>${esc(o[2])}</b> ${fmt(o[7])} ${esc(o[8])} · ${esc(o[3])} · ${esc(o[10]).toLowerCase()} ${dmy(o[10]==="Objednáno"?o[11]:o[1])}`).join("; ")}</div>`:""}
+    ${dup?`<div class="warnbox">Toto zboží už je v objednávce <b>${esc(S.osup)}</b>: ${fmt(dup[7])} ${dup[8]==="bal"?"bal.":"ks"} (zapsal/a ${esc(dup[2])}, ${dmy(dup[1])}). Podruhé ho zapsat nejde – můžete jen změnit počet.</div>`:""}
+    ${(open=open.filter(o=>!dup||o[0]!==dup[0])).length?`<div class="warnbox">Už je v objednávkách: ${open.map(o=>`<b>${esc(o[2])}</b> ${fmt(o[7])} ${esc(o[8])} · ${esc(o[3])} · ${esc(o[10]).toLowerCase()} ${dmy(o[10]==="Objednáno"?o[11]:o[1])}`).join("; ")}</div>`:""}
     ${showSup?`<div><h2 style="margin-bottom:8px">Dodavatel${!free&&S.ord.map[key]?` <span class="hint" style="text-transform:none;letter-spacing:0">(naposledy ${esc(S.ord.map[key])})</span>`:""}</h2>
       <div class="supgrid">${sups.map(x=>`<button type="button" class="chip" data-osup="${esc(x[0])}" aria-pressed="${S.osup===x[0]}">${esc(x[0])}<small>${esc(x[1])}</small></button>`).join("")}</div></div>`
       :`<div class="row" style="justify-content:space-between"><span>Dodavatel: <b>${esc(S.osup)}</b>${!free&&S.ord.map[key]&&S.ord.map[key]!==S.osup?` <span class="hint">(naposledy ${esc(S.ord.map[key])})</span>`:""}</span><button type="button" class="linkbtn" id="ochange">změnit</button></div>`}
     <form id="ordForm" style="display:flex;flex-direction:column;gap:8px" autocomplete="off">
-      <div class="qty"><button type="button" class="btn" data-step="-1" aria-label="Méně">−</button><input type="text" inputmode="decimal" id="qty" value="1" aria-label="Počet" enterkeyhint="done"><button type="button" class="btn" data-step="1" aria-label="Více">+</button></div>
+      <div class="qty"><button type="button" class="btn" data-step="-1" aria-label="Méně">−</button><input type="text" inputmode="decimal" id="qty" value="${dup?fmt(dup[7]):1}" aria-label="Počet" enterkeyhint="done"><button type="button" class="btn" data-step="1" aria-label="Více">+</button></div>
       <div class="chips"><button type="button" class="chip" data-ounit="ks" aria-pressed="${S.ounit==="ks"}">kusů</button><button type="button" class="chip" data-ounit="bal" aria-pressed="${S.ounit==="bal"}">balení / kartonů</button></div>
-      <input type="text" id="onote" placeholder="Poznámka (odstín, zrnitost, PET…)" aria-label="Poznámka">
-      <button class="btn primary big" type="submit">Zapsat do objednávky</button>
+      <input type="text" id="onote" placeholder="Poznámka (odstín, zrnitost, PET…)" aria-label="Poznámka" value="${dup?esc(dup[9]||""):""}">
+      <button class="btn primary big" type="submit">${dup?"Uložit nový počet":"Zapsat do objednávky"}</button>
       ${S.cam?`<button class="btn" type="button" id="resume">Zrušit a skenovat dál</button>`:""}
     </form></section>`;
 }
+function ordDup(key){return key&&key!=="__free__"&&S.osup?S.ord.rows.find(x=>x[4]===key&&x[3]===S.osup&&x[10]==="Zapsáno"):null}
 async function submitOrder(){
   const key=S.current, free=key==="__free__", r=free?null:itemRow(key);
   const nm=free?($("#ofree").value.trim()):(r?r[0]:key);
   if(!nm){toast("Napište název zboží");return}
   if(!S.osup){toast("Vyberte dodavatele");return}
   const q=parseQ($("#qty").value); if(isNaN(q)||q<=0){toast("Zadejte počet");return}
+  if(S.osaving)return;
+  const btn=$("#ordForm button[type=submit]");S.osaving=true;if(btn){btn.disabled=true;btn.textContent="Zapisuji…"}
+  const dup=ordDup(key);
+  if(dup){const note=$("#onote").value.trim();S.current=null;S.osupFor=null;S.query="";S.resetCode=true;
+    await ordSet([dup[0]],{qty:q,unit:S.ounit,note},`Počet změněn: ${nm} · ${fmt(q)} ${S.ounit==="bal"?"bal.":"ks"}`);
+    S.osaving=false;afterSave();return}
   const e={id:uid(),dod:S.osup,cis:free?"":key,nm,ean:free?(S.freeEan||""):(r&&r[1]||""),qty:q,unit:S.ounit,note:$("#onote").value.trim()};
   try{await ordPost({a:"ord_add",entries:[e]});
     S.ord.rows.push([e.id,Date.now(),S.name,e.dod,e.cis,e.nm,e.ean,q,e.unit,e.note,"Zapsáno",Date.now(),S.name]);
     if(e.cis)S.ord.map[e.cis]=e.dod;
     toast(`Zapsáno: ${nm} · ${e.dod}`); S.freeEan=""; S.osupFor=null; S.current=null; S.query=""; S.resetCode=true; afterSave(); loadOrders();
-  }catch(err){if(err.message!=="pin")toast("Nepodařilo se zapsat. Zkontrolujte připojení a zkuste znovu.")}
+  }catch(err){if(err.message!=="pin")toast("Nepodařilo se zapsat. Zkontrolujte připojení a zkuste znovu.");if(btn){btn.disabled=false;btn.textContent="Zapsat do objednávky"}}
+  finally{S.osaving=false}
 }
 function viewOrdList(){
   const F={zap:["Zapsáno"],obj:["Objednáno"],dod:["Dodáno"],vse:["Zapsáno","Objednáno","Dodáno"]};
@@ -752,7 +764,7 @@ function ordAction(st,id,b){
   if(st==="Zrušeno"&&S.oconf!=="del|"+id){S.oconf="del|"+id;render();return}
   ordSet([id],{stav:st},st==="Zrušeno"?"Zrušeno":"Označeno: "+st.toLowerCase());
 }
-function supAction(act,sup,b){
+async function supAction(act,sup,b){
   const g=S.ord.rows.filter(r=>r[3]===sup&&r[10]===(act==="alldod"?"Objednáno":"Zapsáno"));
   if(!g.length)return;
   if(act==="allobj"||act==="alldod"){
@@ -762,8 +774,12 @@ function supAction(act,sup,b){
   if(act==="csv"){
     const ok=g.filter(r=>r[4]), bal=ok.filter(r=>r[8]==="bal"), skip=g.length-ok.length;
     const lines=ok.map(r=>r[4]+";"+String(Math.round(r[7]*1000)/1000));
-    const d=new Date(),name=`Objednavka-${sup.replace(/[^A-Za-z0-9]+/g,"_")}-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}.csv`;
-    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([lines.join("\r\n")+"\r\n"],{type:"text/csv"}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);
+    const d=new Date(),p2=n=>String(n).padStart(2,"0"),name=`Objednavka-${sup.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9]+/g,"_")}-${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}.csv`;
+    const blob=new Blob([lines.join("\r\n")+"\r\n"],{type:"text/csv"});
+    if(window.showSaveFilePicker&&!/Android|iPhone|iPad/i.test(navigator.userAgent)){
+      try{const fh=await showSaveFilePicker({id:"blr-obj-csv",suggestedName:name,types:[{description:"CSV",accept:{"text/csv":[".csv"]}}]});const w=await fh.createWritable();await w.write(blob);await w.close()}
+      catch(err){if(err&&err.name==="AbortError")return;toast("Uložení se nepovedlo");return}
+    }else{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000)}
     toast(`${lines.length} řádků uloženo`+(bal.length?` · ${bal.length} v baleních – zkontrolujte počet`:"")+(skip?` · ${skip} bez kódu zadejte ručně`:""));return;
   }
   if(act==="copy"){
