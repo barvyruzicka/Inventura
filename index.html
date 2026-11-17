@@ -250,8 +250,8 @@ async function loadCatalog(){
     const res=await apiGet({a:"catalog"});
     if(!res.ok){connFail(res);if(res.err&&res.err!=="key")S.catError=res.err;render();return}
     connOk(); newGen(res.gen);
-    setCatalog(res.rows); S.catState=res.rows.length?"ok":"empty"; S.catError=null; S.catAt=res.at||""; S.catLocked=!!res.locked;
-    store.set("catalog",res.rows.map(r=>r.slice(0,4)));
+    setCatalog(res.rows); S.catState=res.rows.length?"ok":"empty"; S.catError=null; S.catAt=res.at||""; S.catLocked=!!res.locked; S.admins=res.admins||[];
+    store.set("catalog",res.rows.map(r=>r.slice(0,7)));
   }catch(e){connFail();if(!S.catalog.length)S.catState="error"}
   render();
 }
@@ -1143,7 +1143,15 @@ function viewSettings(){
     <dt>Čeká na odeslání</dt><dd>${fmt(wait)}</dd>
     <dt>Toto zařízení</dt><dd class="code">${esc(S.dev)}</dd></dl>
     <button class="btn" type="button" id="reloadCat">Načíst seznam zboží znovu</button>
-    <p class="hint" style="margin:0">Seznam zboží se mění v Google tabulce v listu „Katalog“. Novou inventuru spustíte tamtéž v menu BLR App.</p></section>`;
+    <p class="hint" style="margin:0">Seznam zboží se mění v Google tabulce v listu „Katalog“ a z Cézaru se obnovuje sám každou hodinu (Po–Pá 7–18).</p></section>`;
+  if((S.admins||[]).includes(S.name))h+=`<section class="panel"><h2>Řízení inventury</h2>
+    <dl class="kv"><dt>Stavy z Cézaru</dt><dd>${S.catAt?esc(S.catAt):"–"}</dd>
+      <dt>Katalog</dt><dd>${S.catLocked?"<b>ZAMČENÝ</b> – stavy se nemění, probíhá inventura":"odemčený – obnovuje se z Cézaru"}</dd></dl>
+    ${S.catLocked?"":`<p class="hint" style="margin:0">Před zahájením spusťte v Cézaru export ručně (Automat manager → úloha 5 → <b>Spustit úlohu ručně</b>), počkejte asi minutu, ať se soubor nahraje na Disk, a pak zahajte. Stavy se vezmou z toho exportu.</p>`}
+    <button class="btn ${S.catLocked?"":"primary"}" type="button" id="invStart">${S.invConf==="start"?"Opravdu? Dosavadní zápisy se archivují a všichni začnou od nuly":"Zahájit novou inventuru"}</button>
+    ${S.catLocked?`<button class="btn" type="button" id="invRefresh">${S.invConf==="refresh"?"Opravdu přepsat stavy novým exportem?":"Načíst znovu stavy z Cézaru"}</button>
+      <button class="btn primary" type="button" id="invEnd">${S.invConf==="end"?"Opravdu ukončit? Katalog se zase začne obnovovat":"Ukončit inventuru (odemknout katalog)"}</button>`:""}
+    <p class="hint" style="margin:0">„Zahájit“ = archivuje dosavadní zápisy, načte čerstvé stavy z Cézaru a zamkne katalog. Během inventury zůstanou stavy zmrazené, i když Cézar dál exportuje. Po importu výsledku do Cézaru dejte „Ukončit“.</p></section>`;
   h+=`<section class="panel"><h2>Jak počítat</h2><ol class="steps">
     <li>Nahoře vyberte úsek, ve kterém právě počítáte.</li>
     <li>Klepněte na <b>Skenovat kamerou</b> a namiřte telefon na čárový kód. Po pípnutí se ukáže zboží.</li>
@@ -1248,6 +1256,12 @@ document.addEventListener("click",async e=>{
     case "dlDiscard":if(S.dconf!=="discard"){S.dconf="discard";render();break}S.dconf=null;S.dd={id:uid(),odb:null,items:[]};dlSaveDraft();SIG.pts=[];S.current=null;toast("Rozpracovaný dodák zahozen");render();window.scrollTo(0,0);break;
     case "dprintGo":window.print();break;
     case "dprintClose":S.dprint=null;render();break;
+    case "invStart":case "invEnd":case "invRefresh":{const k={invStart:"start",invEnd:"end",invRefresh:"refresh"}[b.id];
+      if(S.invConf!==k){S.invConf=k;render();break}S.invConf=null;b.disabled=true;b.textContent="Pracuji…";
+      ordPost({a:"inv_admin",act:k==="end"?"unlock":k}).then(r=>{
+        S.catLocked=!!r.locked;S.catAt=r.at||S.catAt;
+        toast(k==="start"?(r.cat==="nofile"?"Zahájeno, ale soubor s katalogem na Disku nebyl nalezen":"Inventura zahájena – katalog načten a zamčen"):k==="end"?"Inventura ukončena – katalog odemčen":"Stavy načteny znovu");
+        loadCatalog()}).catch(err=>{if(err.message==="admin")toast("Tuto akci může dělat jen správce");else if(err.message!=="pin")toast("Nepodařilo se. Zkontrolujte připojení.");render()});break}
     case "freeBtn":S.current="__free__";S.freeEan=S.notFound||"";S.notFound=null;S.choices=null;S.results=null;render();break;
     case "csvBtn":exportCsv();break;
     case "reloadCat":loadCatalog();toast("Načítám seznam zboží…");break;
