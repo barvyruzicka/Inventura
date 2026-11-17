@@ -562,13 +562,19 @@ function viewScan(){
   h+=recentPanel();
   return h;
 }
+const fmtKc=n=>Number(n).toLocaleString("cs-CZ",{minimumFractionDigits:0,maximumFractionDigits:2})+" Kč";
+function catInfo(r,withStav){if(!r)return "";const u=r[4]?" "+r[4]:"";
+  return (withStav?` · v Cézaru ${fmt(+r[3]||0)}${u}`:(u?" · "+r[4]:""))+(r[5]!==""&&r[5]!=null&&+r[5]>0?" · "+fmtKc(r[5]):"")}
+/* dodavatel z Cézaru → dodavatel ze seznamu Dodavatelé (podle shody slov v názvu) */
+function supFromCezar(r){if(!r||!r[6])return null;const z=norm(r[6]);
+  for(const x of S.ord.sup){const words=norm(x[0]).replace(/[()]/g," ").split(/\s+/).filter(w=>w.length>=3);if(words.some(w=>z.includes(w)))return x[0]}return null}
 function choiceLi(i){const r=S.catalog[i];const t=totals().get(r[2]);return `<button type="button" class="li" data-pick="${esc(r[2])}"><span class="n">${esc(r[0])}</span><span class="q">${t?fmt(t.ALL):"–"}</span><span class="s">${esc(r[2])}${r[1]?" · "+esc(r[1]):""} · Cézar ${fmt(+r[3]||0)}</span></button>`}
 function itemCard(key){
   const r=itemRow(key); const t=totals().get(key)||{ALL:0}; const me=myQ(key); const here=t[S.area]||0;
   const stav=r?(+r[3]||0):0; const diff=t.ALL-stav; const bd=breakdown(key);
   const unk=key.startsWith("?");
   return `<section class="panel flash" id="card">
-    <div><p class="item-name">${esc(r?r[0]:unk?(t.n||"Neznámé zboží"):key)}</p><div class="code">${esc(unk?"kód "+key.slice(1):key)}${r&&r[1]?" · EAN "+esc(r[1]):""}</div></div>
+    <div><p class="item-name">${esc(r?r[0]:unk?(t.n||"Neznámé zboží"):key)}</p><div class="code">${esc(unk?"kód "+key.slice(1):key)}${r&&r[1]?" · EAN "+esc(r[1]):""}${esc(catInfo(r,false))}</div></div>
     <div class="stats">
       <div class="stat"><span>V Cézaru</span><b>${unk?"–":fmt(stav)}</b></div>
       <div class="stat hl"><span>${AREA_LABEL[S.area]}</span><b>${fmt(here)}</b></div>
@@ -673,7 +679,7 @@ function orderCard(key){
   const free=key==="__free__", r=free?null:itemRow(key);
   let open=free?[]:S.ord.rows.filter(x=>x[4]===key&&x[10]==="Zapsáno");
   const fx=S.ofix&&S.ofix!=="*"?S.ofix:"";
-  if(S.osupFor!==key){S.osupFor=key;S.osup=fx||(free?null:(S.ord.map[key]||null));S.ounit="ks";S.ochange=false}
+  if(S.osupFor!==key){S.osupFor=key;S.osup=fx||(free?null:(S.ord.map[key]||supFromCezar(itemRow(key))||null));S.ounit="ks";S.ochange=false}
   const showSup=!fx||S.ochange||S.osup!==fx;
   const dup=ordDup(key);
   if(dup&&S.odupFor!==dup[0]){S.odupFor=dup[0];S.ounit=dup[8]==="bal"?"bal":"ks"}
@@ -681,7 +687,7 @@ function orderCard(key){
   const sups=S.ord.sup.length?S.ord.sup:[["Ostatní","Jinak","",""]];
   return `<section class="panel flash" id="card">
     ${free?`<h2>Zboží bez kódu</h2><input type="text" id="ofree" placeholder="Název zboží (např. S2000 0110 7 l)" aria-label="Název zboží">`
-      :`<div><p class="item-name">${esc(r?r[0]:key)}</p><div class="code">${esc(key)}${r&&r[1]?" · EAN "+esc(r[1]):""} · v Cézaru ${fmt(r?+r[3]||0:0)}</div></div>`}
+      :`<div><p class="item-name">${esc(r?r[0]:key)}</p><div class="code">${esc(key)}${r&&r[1]?" · EAN "+esc(r[1]):""}${r?esc(catInfo(r,true)):" · v Cézaru 0"}${r&&r[6]?" · dod. "+esc(r[6]):""}</div></div>`}
     ${dup?`<div class="warnbox">Toto zboží už je v objednávce <b>${esc(S.osup)}</b>: ${fmt(dup[7])} ${dup[8]==="bal"?"bal.":"ks"} (zapsal/a ${esc(dup[2])}, ${dmy(dup[1])}). Podruhé ho zapsat nejde – můžete jen změnit počet.</div>`:""}
     ${(open=open.filter(o=>!dup||o[0]!==dup[0])).length?`<div class="warnbox">Už je v objednávkách: ${open.map(o=>`<b>${esc(o[2])}</b> ${fmt(o[7])} ${esc(o[8])} · ${esc(o[3])} · ${esc(o[10]).toLowerCase()} ${dmy(o[10]==="Objednáno"?o[11]:o[1])}`).join("; ")}</div>`:""}
     ${showSup?`<div><h2 style="margin-bottom:8px">Dodavatel${!free&&S.ord.map[key]?` <span class="hint" style="text-transform:none;letter-spacing:0">(naposledy ${esc(S.ord.map[key])})</span>`:""}</h2>
@@ -882,7 +888,7 @@ function dlCard(key){
   const ex=key.startsWith("#")?d.items[+key.slice(1)]:d.items.find(y=>y.cis===key&&!free);
   return `<section class="panel flash" id="card">
     ${free&&!ex?`<h2>Zboží bez kódu</h2><input type="text" id="ofree" placeholder="Název zboží" aria-label="Název zboží">`
-      :`<div><p class="item-name">${esc(ex?ex.nm:(r?r[0]:key))}</p><div class="code">${esc(ex&&!ex.cis?"bez kódu":key)}${r&&r[1]?" · EAN "+esc(r[1]):""}${r?" · v Cézaru "+fmt(+r[3]||0):""}</div></div>`}
+      :`<div><p class="item-name">${esc(ex?ex.nm:(r?r[0]:key))}</p><div class="code">${esc(ex&&!ex.cis?"bez kódu":key)}${r&&r[1]?" · EAN "+esc(r[1]):""}${r?esc(catInfo(r,true)):""}</div></div>`}
     ${ex?`<div class="warnbox">Už je na dodacím listu: <b>${fmt(ex.qty)}</b>. Zadejte nový počet.</div>`:""}
     <form id="dlForm" style="display:flex;flex-direction:column;gap:8px" autocomplete="off">
       <div class="qty"><button type="button" class="btn" data-step="-1" aria-label="Méně">−</button><input type="text" inputmode="decimal" id="qty" value="${ex?fmt(ex.qty):1}" aria-label="Počet" enterkeyhint="done"><button type="button" class="btn" data-step="1" aria-label="Více">+</button></div>
