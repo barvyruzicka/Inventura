@@ -250,7 +250,7 @@ async function loadCatalog(){
     const res=await apiGet({a:"catalog"});
     if(!res.ok){connFail(res);if(res.err&&res.err!=="key")S.catError=res.err;render();return}
     connOk(); newGen(res.gen);
-    setCatalog(res.rows); S.catState=res.rows.length?"ok":"empty"; S.catError=null; S.catAt=res.at||""; S.catLocked=!!res.locked; S.admins=res.admins||[];
+    setCatalog(res.rows); S.catState=res.rows.length?"ok":"empty"; S.catError=null; S.catAt=res.at||""; S.catLocked=!!res.locked; S.admins=res.admins||[]; S.inv=res.inv||null;
     store.set("catalog",res.rows.map(r=>r.slice(0,7)));
   }catch(e){connFail();if(!S.catalog.length)S.catState="error"}
   render();
@@ -1102,6 +1102,10 @@ function overviewRows(){
   if(S.ovFilter==="diff")rows.sort((x,y)=>Math.abs(y.all-y.stav)-Math.abs(x.all-x.stav));
   return rows;
 }
+function invLine(){const v=S.inv;if(!v||!v.start)return "";
+  return `<dl class="kv"><dt>Inventura zahájena</dt><dd><b>${esc(v.start)}</b></dd><dt>Stavy z Cézaru k</dt><dd><b>${esc(v.stav||"–")}</b></dd>${v.end?`<dt>Ukončena</dt><dd>${esc(v.end)}</dd>`:""}</dl>`}
+function invStamp(){const v=S.inv;const d=v&&v.startTs?new Date(v.startTs):new Date(),p2=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`}
 function viewOverview(){
   const t=totals(); const sum={SKLAD:[0,0],OBCHOD:[0,0],MICHARNA:[0,0]}; let items=0,pcs=0;
   for(const [k,o] of t){if(o.ALL>0){items++;pcs+=o.ALL}for(const a of AREAS)if(o[a.id]>0){sum[a.id][0]++;sum[a.id][1]+=o[a.id]}}
@@ -1110,6 +1114,7 @@ function viewOverview(){
   const filt=[["diff","Rozdíly proti Cézaru"],["missing","Nespočítané se stavem"],["counted","Spočítané"]];
   const ppl=[...people].filter(p=>p[1]>0);
   return `<section class="panel"><h2>Stav inventury</h2>
+    ${invLine()}
     <div class="stats"><div class="stat"><span>Položek</span><b>${fmt(items)}</b></div><div class="stat"><span>Kusů</span><b>${fmt(pcs)}</b></div><div class="stat"><span>V katalogu</span><b>${fmt(S.catalog.length)}</b></div></div>
     <div class="areabar">${AREAS.map(a=>`<i class="dot" style="background:var(${a.c})"></i><span>${a.label}</span><span class="num">${fmt(sum[a.id][0])} pol. · ${fmt(sum[a.id][1])} ks</span>`).join("")}</div>
     <div class="hint">Počítali: ${ppl.length?ppl.map(([n,c])=>`${esc(n)} (${c})`).join(", "):"zatím nikdo"}</div>
@@ -1145,7 +1150,8 @@ function viewSettings(){
     <button class="btn" type="button" id="reloadCat">Načíst seznam zboží znovu</button>
     <p class="hint" style="margin:0">Seznam zboží se mění v Google tabulce v listu „Katalog“ a z Cézaru se obnovuje sám každou hodinu (Po–Pá 7–18).</p></section>`;
   if((S.admins||[]).includes(S.name))h+=`<section class="panel"><h2>Řízení inventury</h2>
-    <dl class="kv"><dt>Stavy z Cézaru</dt><dd>${S.catAt?esc(S.catAt):"–"}</dd>
+    ${invLine()}
+    <dl class="kv"><dt>Katalog načten</dt><dd>${S.catAt?esc(S.catAt):"–"}</dd>
       <dt>Katalog</dt><dd>${S.catLocked?"<b>ZAMČENÝ</b> – stavy se nemění, probíhá inventura":"odemčený – obnovuje se z Cézaru"}</dd></dl>
     ${S.catLocked?"":`<p class="hint" style="margin:0">Před zahájením spusťte v Cézaru export ručně (Automat manager → úloha 5 → <b>Spustit úlohu ručně</b>), počkejte asi minutu, ať se soubor nahraje na Disk, a pak zahajte. Stavy se vezmou z toho exportu.</p>`}
     <button class="btn ${S.catLocked?"":"primary"}" type="button" id="invStart">${S.invConf==="start"?"Opravdu? Dosavadní zápisy se archivují a všichni začnou od nuly":"Zahájit novou inventuru"}</button>
@@ -1185,8 +1191,9 @@ function exportXlsx(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(diff),"Rozdíly");
   const unk=[...t].filter(([k,o])=>k.startsWith("?")&&o.ALL>0);
   if(unk.length){const u=[["Popis","Načtený kód","Sklad","Obchod","Míchárna","Celkem"]];unk.forEach(([k,o])=>u.push([o.n||"",k.slice(1),o.SKLAD,o.OBCHOD,o.MICHARNA,o.ALL]));XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(u),"Mimo katalog")}
-  const d=new Date();
-  XLSX.writeFile(wb,`Inventura-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}.xlsx`);
+  if(S.inv&&S.inv.start){const info=[["Inventura zahájena",S.inv.start],["Stavy z Cézaru k",S.inv.stav||""],["Ukončena",S.inv.end||""],["Export z aplikace",new Date().toLocaleString("cs-CZ")]];
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(info),"Info");}
+  XLSX.writeFile(wb,`Inventura-${invStamp()}.xlsx`);
 }
 
 function exportCsv(){
@@ -1196,7 +1203,7 @@ function exportCsv(){
     if(c>0||s!==0)lines.push(r[2]+";"+String(c));
   });
   const unk=[...t].filter(([k,o])=>k.startsWith("?")&&o.ALL>0).length;
-  const d=new Date(),name=`Inventura-Cezar-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}.csv`;
+  const name=`Inventura-Cezar-${invStamp()}.csv`;
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([lines.join("\r\n")+"\r\n"],{type:"text/csv"}));a.download=name;
   document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);
   toast(`${fmt(lines.length)} řádků uloženo`+(unk?` · ${unk} neznámých položek dořešte ručně`:""));
@@ -1259,7 +1266,7 @@ document.addEventListener("click",async e=>{
     case "invStart":case "invEnd":case "invRefresh":{const k={invStart:"start",invEnd:"end",invRefresh:"refresh"}[b.id];
       if(S.invConf!==k){S.invConf=k;render();break}S.invConf=null;b.disabled=true;b.textContent="Pracuji…";
       ordPost({a:"inv_admin",act:k==="end"?"unlock":k}).then(r=>{
-        S.catLocked=!!r.locked;S.catAt=r.at||S.catAt;
+        S.catLocked=!!r.locked;S.catAt=r.at||S.catAt;if(r.inv)S.inv=r.inv;
         toast(k==="start"?(r.cat==="nofile"?"Zahájeno, ale soubor s katalogem na Disku nebyl nalezen":"Inventura zahájena – katalog načten a zamčen"):k==="end"?"Inventura ukončena – katalog odemčen":"Stavy načteny znovu");
         loadCatalog()}).catch(err=>{if(err.message==="admin")toast("Tuto akci může dělat jen správce");else if(err.message!=="pin")toast("Nepodařilo se. Zkontrolujte připojení.");render()});break}
     case "freeBtn":S.current="__free__";S.freeEan=S.notFound||"";S.notFound=null;S.choices=null;S.results=null;render();break;
