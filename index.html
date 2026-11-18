@@ -152,6 +152,42 @@ h1 .logo{width:30px;height:30px;border-radius:6px;background:#fff;flex:none}
 #qr{align-self:center;background:#fff;padding:10px;border-radius:8px}
 @media print{header,#status,.tabs,.noprint,#cambox,.toast{display:none!important}body{background:#fff!important}.printdoc{border:0!important;box-shadow:none!important}}
 #qr img,#qr canvas{display:block}
+/* štítky */
+body.wide .wrap{max-width:1180px}
+body.wide #main{width:100%}
+.labgrid{display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:900px){.labgrid{grid-template-columns:minmax(0,1fr)}}
+.labcol{display:flex;flex-direction:column;gap:14px;min-width:0}
+.labprev{position:sticky;top:76px}
+.labsheet{width:100%;max-width:640px;margin:0 auto;aspect-ratio:210/297;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12),0 6px 18px rgba(0,0,0,.08)}
+.labsheet svg{display:block;width:100%;height:100%}
+.lablist{display:flex;flex-direction:column;max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.labrow{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border-top:1px solid var(--line)}
+.labrow:first-child{border-top:0}
+.labrow.off{opacity:.55}
+.labrow-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.labqty{display:flex;align-items:center;gap:6px}
+.labqty .btn{padding:6px 10px;font-size:16px}
+.labqty b{min-width:22px;text-align:center;font:700 18px/1 var(--f-label);font-variant-numeric:tabular-nums}
+.labname{display:flex;gap:8px;align-items:center}
+.labname input{font-size:16px;padding:8px 10px}
+.labname input.edited{border-color:var(--ok)}
+.labname .linkbtn{font-size:13px;white-space:nowrap}
+.labpaste{display:flex;flex-direction:column;gap:8px}
+.labpaste textarea{width:100%;font:13px/1.45 var(--f-code);padding:10px;border-radius:8px;border:1.5px solid var(--line);background:var(--bg);color:var(--fg);resize:vertical}
+.labq{display:grid;grid-template-columns:1fr 1fr;gap:4px;width:150px;height:212px;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)}
+.labq button{border:1px solid var(--line);border-radius:5px;background:#fff;color:#1d2420;font:600 13px/1.2 var(--f-ui);cursor:pointer;padding:4px}
+.labq button[aria-pressed="true"]{background:repeating-linear-gradient(135deg,#e6e3dc 0 6px,#f3f1ec 6px 12px);color:#8f8a80;text-decoration:line-through}
+#labPrint{display:none}
+@page lab{size:A4 portrait;margin:0}
+@media print{
+  body.labprinting{padding:0!important;margin:0!important;background:#fff!important}
+  body.labprinting::before,body.labprinting>.wrap,body.labprinting>nav,body.labprinting>.toast{display:none!important}
+  body.labprinting #labPrint{display:block}
+  .lpage{page:lab;width:210mm;height:297mm;overflow:hidden;break-after:page}
+  .lpage:last-child{break-after:auto}
+  .lpage svg{display:block;width:210mm;height:297mm}
+}
 </style>
 </head>
 <body data-area="OBCHOD">
@@ -181,7 +217,7 @@ h1 .logo{width:30px;height:30px;border-radius:6px;background:#fff;flex:none}
 "use strict";
 const AREAS=[{id:"SKLAD",label:"Sklad",c:"--sklad"},{id:"OBCHOD",label:"Obchod",c:"--obchod"},{id:"MICHARNA",label:"Míchárna",c:"--michr"}];
 const AREA_LABEL=Object.fromEntries(AREAS.map(a=>[a.id,a.label]));
-function modFromHash(){const h=location.hash;return h==="#inventura"?"inventura":h==="#objednavky"?"objednavky":h==="#dodaci"?"dodaci":"home"}
+function modFromHash(){const h=location.hash;return h==="#inventura"?"inventura":h==="#objednavky"?"objednavky":h==="#dodaci"?"dodaci":h==="#stitky"?"stitky":"home"}
 const store={get(k,d){try{const v=localStorage.getItem("inv."+k);return v==null?d:JSON.parse(v)}catch(e){return d}},
   set(k,v){try{localStorage.setItem("inv."+k,JSON.stringify(v))}catch(e){}}};
 
@@ -475,7 +511,7 @@ const CZ_DIGITS={"+":"1","ě":"2","š":"3","č":"4","ř":"5","ž":"6","ý":"7","
 function fixScanner(v){
   // čtečka na české klávesnici píše místo číslic +ěščřžýáíé
   const t=String(v||"").trim();
-  if(t.length>=6&&/^[+ěščřžýáíé0-9]+$/.test(t)&&/[+ěščřžýáíé]/.test(t))return t.replace(/[+ěščřžýáíé]/g,c=>CZ_DIGITS[c]);
+  if(t.length>=6&&/^[+ěščřžýáíé0-9=.]+$/.test(t)&&/[+ěščřžýáíé]/.test(t))return t.replace(/[+ěščřžýáíé]/g,c=>CZ_DIGITS[c]).replace(/=/g,"-");
   return t;
 }
 function handleCode(raw,{fromScan,fromCam}={}){
@@ -503,11 +539,12 @@ function scrollToCard(){requestAnimationFrame(()=>{const c=$("#card");if(c&&S.ca
 function render(){
   document.body.dataset.area=S.area;
   $("#whoName").textContent=S.name||"nepřihlášen";
-  const inv=S.module==="inventura", ord=S.module==="objednavky", dod=S.module==="dodaci", inApp=!!(API&&S.name&&!S.newPin);
+  const inv=S.module==="inventura", ord=S.module==="objednavky", dod=S.module==="dodaci", lab=S.module==="stitky", inApp=!!(API&&S.name&&!S.newPin);
+  document.body.classList.toggle("wide",lab&&inApp);
   if(ord||dod)document.body.dataset.area="OBCHOD";
-  $("#appTitle").lastChild.textContent=inv?"Inventura":ord?"Objednávky":dod?"Dodací listy":"BLR App";
-  $("#appLogo").hidden=inv||ord||dod;
-  $("#homeBtn").hidden=!((inv||ord||dod)&&inApp);
+  $("#appTitle").lastChild.textContent=inv?"Inventura":ord?"Objednávky":dod?"Dodací listy":lab?"Štítky":"BLR App";
+  $("#appLogo").hidden=inv||ord||dod||lab;
+  $("#homeBtn").hidden=!((inv||ord||dod||lab)&&inApp);
   $("#areas").hidden=!(inv&&inApp);
   const tabs=$("#tabs"); tabs.hidden=!((inv||ord||dod)&&inApp);
   tabs.innerHTML=inv?[["scan","Počítání"],["overview","Přehled"],["settings","Nastavení"]].map(([v,l])=>`<button type="button" data-view="${v}" aria-current="${S.view===v?"page":"false"}">${l}</button>`).join("")
@@ -521,7 +558,7 @@ function render(){
   document.querySelectorAll("#main input[type=text],#main input[type=search],#main input[type=url]").forEach(i=>{if(i.id)vals[i.id]=i.value});
   if(S.current!==prevCard){delete vals.qty;delete vals.onote;delete vals.ofree}
   if(S.resetCode){delete vals.code;S.resetCode=false}
-  $("#main").innerHTML=!API?viewSetup():(!S.name||S.newPin)?viewLogin():ord?(S.oview==="list"?viewOrdList():viewOrdAdd()):dod?(S.dprint?viewDlPrint():S.dview==="list"?viewDlList():viewDlNew()):!inv?viewHome():S.view==="scan"?viewScan():S.view==="overview"?viewOverview():viewSettings();
+  $("#main").innerHTML=!API?viewSetup():(!S.name||S.newPin)?viewLogin():ord?(S.oview==="list"?viewOrdList():viewOrdAdd()):dod?(S.dprint?viewDlPrint():S.dview==="list"?viewDlList():viewDlNew()):lab?viewLab():!inv?viewHome():S.view==="scan"?viewScan():S.view==="overview"?viewOverview():viewSettings();
   for(const id in vals){const el=document.getElementById(id);if(el)el.value=vals[id]}
   const card=$("#card");if(card&&S.current===prevCard)card.classList.remove("flash");
   S.renderedCard=S.current;
@@ -615,6 +652,8 @@ function viewHome(){
       <span><b>Dodací listy</b><small>${S.dl.loaded&&dlOpenCount()?`K fakturaci ${fmt(dlOpenCount())} DL`:"Odběry firem na dodák, měsíční fakturace"}</small></span><span class="go">›</span></button>
     <button type="button" class="tile" data-mod="inventura"><span class="ic" style="--c:var(--sklad)">${ICONS.inv}</span>
       <span><b>Inventura</b><small>${all?`Spočítáno celkem ${fmt(all)} pol. · moje ${fmt(mine)} pol. / ${fmt(pcs)} ks`:"Počítání skladu, export do Cézaru"}</small></span><span class="go">›</span></button>
+    <button type="button" class="tile" data-mod="stitky"><span class="ic" style="--c:var(--ok)">${ICON_LAB}</span>
+      <span><b>Štítky</b><small>${S.lab.items.length?`Ke tisku ${fmt(S.lab.items.reduce((a,b)=>a+b.q,0))} štítků`:"Regálové štítky s čárovým kódem, tisk na A4"}</small></span><span class="go">›</span></button>
   </section>
   <section class="panel"><div class="row" style="justify-content:space-between"><span>Přihlášený: <b>${esc(S.name)}</b></span><button class="btn" type="button" id="logoutBtn">Odhlásit</button></div>
     <p class="hint" style="margin:0">${S.catalog.length?`Katalog zboží: ${fmt(S.catalog.length)} položek${S.catAt?" · "+esc(S.catAt):""}`:"Načítám katalog zboží…"}</p></section>`;
@@ -1031,7 +1070,7 @@ function viewDlPrint(){
 
 function goModule(m){
   if(S.cam)camStop();
-  S.module=["inventura","objednavky","dodaci"].includes(m)?m:"home";
+  S.module=["inventura","objednavky","dodaci","stitky"].includes(m)?m:"home";
   S.current=null;S.choices=null;S.results=null;S.notFound=null;S.query="";
   if(S.module==="objednavky"){S.ofix="";S.oview="add";loadOrders()}
   if(S.module==="dodaci"){S.dview="new";S.dprint=null;S.dlDone=null;S.dq="";loadDl();loadOdb()}
@@ -1208,6 +1247,228 @@ function exportCsv(){
   document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);
   toast(`${fmt(lines.length)} řádků uloženo`+(unk?` · ${unk} neznámých položek dořešte ručně`:""));
 }
+
+/* ================= ŠTÍTKY ================= */
+/* Typy štítků: zatím regálový štítek na A4 samolepku dělenou na 4 díly (10,5 × 14,85 cm),
+   4 × 12 štítků po 52,5 × 24,75 mm. Další typy se přidají do LAB_TYPES. */
+const LAB_TYPES=[{id:"regal",name:"Regálový štítek",desc:"A4 dělená na 4 díly · 48 štítků 52,5 × 24,75 mm · název + čárový kód"}];
+const LAB=(()=>{
+  const C128=["212222", "222122", "222221", "121223", "121322", "131222", "122213", "122312", "132212", "221213", "221312", "231212", "112232", "122132", "122231", "113222", "123122", "123221", "223211", "221132", "221231", "213212", "223112", "312131", "311222", "321122", "321221", "312212", "322112", "322211", "212123", "212321", "232121", "111323", "131123", "131321", "112313", "132113", "132311", "211313", "231113", "231311", "112133", "112331", "132131", "113123", "113321", "133121", "313121", "211331", "231131", "213113", "213311", "213131", "311123", "311321", "331121", "312113", "312311", "332111", "314111", "221411", "431111", "111224", "111422", "121124", "121421", "141122", "141221", "112214", "112412", "122114", "122411", "142112", "142211", "241211", "221114", "413111", "241112", "134111", "111242", "121142", "121241", "114212", "124112", "124211", "411212", "421112", "421211", "212141", "214121", "412121", "111143", "111341", "131141", "114113", "114311", "411113", "411311", "113141", "114131", "311141", "411131", "211412", "211214", "211232", "2331112"];
+  const G={pageW:210,pageH:297,cols:4,rows:12,cellW:52.5,cellH:24.75,side:2,barH:7.5,barBottom:3,module:0.33,minModule:0.19};
+  const NAME_FONT='"Barlow Condensed","Arial Narrow",sans-serif', NUM_FONT='"Barlow",Arial,sans-serif';
+  const cv=document.createElement("canvas").getContext("2d");
+  function measure(t,bold,size){cv.font=(bold?'700 100px '+NAME_FONT:'500 100px '+NUM_FONT);return cv.measureText(t).width/100*size*0.35278}
+  function modules(text){
+    const codes=[];
+    if(/^\d+$/.test(text)&&text.length%2===0&&text.length>=4){codes.push(105);for(let i=0;i<text.length;i+=2)codes.push(+text.substr(i,2))}
+    else{codes.push(104);for(const ch of text)codes.push(ch.charCodeAt(0)-32)}
+    let sum=codes[0];for(let k=1;k<codes.length;k++)sum+=codes[k]*k;codes.push(sum%103);codes.push(106);
+    const w=[];codes.forEach(c=>C128[c].split("").forEach(x=>w.push(+x)));return w;
+  }
+  const encodable=t=>!!t&&/^[\x20-\x7E]+$/.test(t);
+  function fit(text,bold,size,maxW,min){
+    while(measure(text,bold,size)>maxW&&size>min)size-=0.25;
+    if(measure(text,bold,size)>maxW){while(text.length&&measure(text+"…",bold,size)>maxW)text=text.slice(0,-1);text+="…"}
+    return {text,size};
+  }
+  // pořadí plnění: pole po poli (LH, PH, LD, PD), uvnitř pole po řádcích
+  const ORDER=[];for(let q=0;q<4;q++){const qc=q%2,qr=Math.floor(q/2);for(let r=0;r<6;r++)for(let c=0;c<2;c++)ORDER.push({q,k:(qr*6+r)*4+qc*2+c})}
+  function pages(items,usedQ){
+    if((usedQ||[]).length>=4)usedQ=[];
+    const queue=[];items.forEach(it=>{for(let i=0;i<it.q;i++)queue.push(it)});
+    const out=[];let qi=0;
+    while(qi<queue.length){const s=new Array(48).fill(null),first=!out.length;
+      for(const o of ORDER){if(qi>=queue.length)break;if(first&&usedQ.includes(o.q))continue;s[o.k]=queue[qi++]}
+      out.push(s)}
+    return out;
+  }
+  function layout(slots,showNum){
+    const ops=[],maxW=G.cellW-2*G.side;
+    const noV=v=>Math.abs(v)<.01||Math.abs(v-105)<.01||Math.abs(v-210)<.01, noH=v=>Math.abs(v)<.01||Math.abs(v-148.5)<.01||Math.abs(v-297)<.01;
+    slots.forEach((it,k)=>{
+      if(!it)return;
+      const col=k%4,row=Math.floor(k/4),x=col*G.cellW,y=row*G.cellH,cx=x+G.cellW/2;
+      if(!noV(x))ops.push({t:"l",x1:x,y1:y,x2:x,y2:y+G.cellH});
+      if(!noV(x+G.cellW))ops.push({t:"l",x1:x+G.cellW,y1:y,x2:x+G.cellW,y2:y+G.cellH});
+      if(!noH(y))ops.push({t:"l",x1:x,y1:y,x2:x+G.cellW,y2:y});
+      if(!noH(y+G.cellH))ops.push({t:"l",x1:x,y1:y+G.cellH,x2:x+G.cellW,y2:y+G.cellH});
+      const barTop=G.cellH-G.barBottom-G.barH, numBase=barTop-0.8, top=y+3.0;
+      const bottom=y+(showNum?numBase-2.3:barTop-0.9), area=bottom-top, name=String(it.n||"").trim();
+      if(name){
+        let best=null;
+        for(let sz=14;sz>=7&&!best;sz-=0.5){
+          const L=sz*0.3528;
+          if(measure(name,true,sz)<=maxW&&L<=area+.01){best={lines:[name],size:sz};break}
+          if(2*L*1.05>area+.01)continue;
+          const w=name.split(/\s+/);let pick=null,pw=1e9;
+          for(let i=1;i<w.length;i++){const a=w.slice(0,i).join(" "),b=w.slice(i).join(" "),wa=measure(a,true,sz),wb=measure(b,true,sz),m=Math.max(wa,wb);if(wa<=maxW&&wb<=maxW&&m<pw){pw=m;pick=[a,b]}}
+          if(pick)best={lines:pick,size:sz};
+        }
+        if(!best){const sz=7,w=name.split(/\s+/);let a="";while(w.length&&measure((a?a+" ":"")+w[0],true,sz)<=maxW)a=(a?a+" ":"")+w.shift();
+          if(!a)a=fit(w.shift()||"",true,sz,maxW,sz).text;best={lines:w.length?[a,fit(w.join(" "),true,sz,maxW,sz).text]:[a],size:sz}}
+        const L=best.size*0.3528,step=L*1.05,bh=L+(best.lines.length-1)*step,b0=top+(area-bh)/2+L*0.78;
+        best.lines.forEach((ln,i)=>ops.push({t:"t",x:cx,y:b0+i*step,s:ln,size:best.size,bold:true}));
+      }
+      if(showNum){const c=fit(it.cis,false,6.5,maxW,5);ops.push({t:"t",x:cx,y:y+numBase,s:c.text,size:c.size,bold:false})}
+      if(encodable(it.cis)){
+        const w=modules(it.cis),tot=w.reduce((a,b)=>a+b,0),mod=Math.max(G.minModule,Math.min(G.module,(maxW-1)/tot));
+        let bx=cx-tot*mod/2;const by=y+barTop;
+        for(let i=0;i<w.length;i++){if(i%2===0)ops.push({t:"r",x:bx,y:by,w:w[i]*mod,h:G.barH});bx+=w[i]*mod}
+      }
+    });
+    return ops;
+  }
+  function svg(slots,{preview,showNum,usedQ,first}){
+    let s=preview?'<svg viewBox="0 0 210 297" xmlns="http://www.w3.org/2000/svg">':'<svg viewBox="0 0 210 297" width="210mm" height="297mm" xmlns="http://www.w3.org/2000/svg">';
+    if(preview){
+      s+='<rect width="210" height="297" fill="#fff"/>';
+      for(let c=1;c<4;c++)s+=`<line x1="${c*G.cellW}" y1="0" x2="${c*G.cellW}" y2="297" stroke="#ecebe6" stroke-width=".2"/>`;
+      for(let r=1;r<12;r++)s+=`<line x1="0" y1="${r*G.cellH}" x2="210" y2="${r*G.cellH}" stroke="#ecebe6" stroke-width=".2"/>`;
+    }
+    const ops=layout(slots,showNum);
+    ops.forEach(o=>{if(o.t==="l")s+=`<line x1="${o.x1}" y1="${o.y1}" x2="${o.x2}" y2="${o.y2}" stroke="#8c8c8c" stroke-width=".2"/>`});
+    if(preview){s+='<line x1="105" y1="0" x2="105" y2="297" stroke="#d9603f" stroke-width=".5" stroke-dasharray="2 1.5"/><line x1="0" y1="148.5" x2="210" y2="148.5" stroke="#d9603f" stroke-width=".5" stroke-dasharray="2 1.5"/>'}
+    ops.forEach(o=>{
+      if(o.t==="r")s+=`<rect x="${o.x.toFixed(3)}" y="${o.y.toFixed(3)}" width="${o.w.toFixed(3)}" height="${o.h}" fill="#000"/>`;
+      else if(o.t==="t")s+=`<text x="${o.x}" y="${o.y.toFixed(3)}" font-family='${o.bold?NAME_FONT:NUM_FONT}' font-weight="${o.bold?700:500}" font-size="${(o.size*0.35278).toFixed(3)}" text-anchor="middle" fill="#000">${esc(o.s)}</text>`;
+    });
+    if(preview&&first&&usedQ.length<4)usedQ.forEach(q=>{const x=(q%2)*105,y=Math.floor(q/2)*148.5;
+      s+=`<rect x="${x+2}" y="${y+2}" width="101" height="144.5" fill="#f1efe9" rx="2"/><text x="${x+52.5}" y="${y+75}" font-size="5" text-anchor="middle" fill="#9a958b" font-family='${NUM_FONT}'>pole už chybí</text>`});
+    return s+"</svg>";
+  }
+  return {pages,svg,encodable};
+})();
+
+/* stav modulu: seznam ke tisku a upravené názvy si pamatuje tento počítač */
+S.lab={items:store.get("lab.items",[]),names:store.get("lab.names",{}),showNum:store.get("lab.num",true),usedQ:[],page:0,q:"",res:null,paste:false,type:"regal"};
+const labSave=()=>{store.set("lab.items",S.lab.items);store.set("lab.names",S.lab.names)};
+const labName=it=>S.lab.names[it.cis]!=null?S.lab.names[it.cis]:it.n;
+function labPrintable(){return S.lab.items.filter(it=>it.q>0&&LAB.encodable(it.cis)).map(it=>({cis:it.cis,n:labName(it),q:it.q}))}
+function labPages(){return LAB.pages(labPrintable(),S.lab.usedQ)}
+function labAdd(cis,n,q=1){
+  cis=String(cis||"").trim();if(!cis)return false;
+  if(!n){const r=itemRow(cis);n=r?r[0]:""}
+  const ex=S.lab.items.find(x=>x.cis===cis);
+  if(ex)ex.q+=q;else S.lab.items.push({cis,n:n||cis,q});
+  labSave();return true;
+}
+function labParsePaste(text){
+  const lines=String(text||"").split(/\r?\n/).filter(l=>l.trim());if(!lines.length)return 0;
+  let n=0;const d=lines[0].includes("\t")?"\t":lines[0].includes(";")?";":null;
+  if(d){const h=lines[0].split(d).map(x=>norm(x.replace(/^"|"$/g,"")));const ci=h.indexOf("cislo zbozi");
+    if(ci>=0){const ni=h.indexOf("nazev zbozi");let pi=-1;["pocet","pocet ks","ks","pocet stitku","stitku"].forEach(k=>{if(pi<0)pi=h.indexOf(k)});
+      for(const l of lines.slice(1)){const f=l.split(d).map(x=>x.replace(/^"|"$/g,"").trim());const c=f[ci];if(!c)continue;
+        const q=pi>=0&&/^\d+([.,]0+)?$/.test(f[pi]||"")?parseInt(f[pi],10):1;if(q>0&&labAdd(fixScanner(c),ni>=0?f[ni]:"",q))n++}
+      return n}}
+  for(const l of lines){let f=l.includes("\t")?l.split("\t"):l.includes(";")?l.split(";"):(m=>[m[1],m[2]])(l.trim().match(/^(\S+)\s*(.*)$/));
+    f=f.map(x=>x.replace(/^"|"$/g,"").trim());while(f.length&&!f[0])f.shift();
+    const c=fixScanner(f[0]||"");if(!/\d/.test(c))continue;
+    const q=f.length>2&&/^\d+$/.test(f[2])?+f[2]:1;if(labAdd(c,f[1]||"",q))n++}
+  return n;
+}
+function labResLi(i){const r=S.catalog[i];return `<button type="button" class="li" data-labadd="${esc(r[2])}"><span class="n">${esc(r[0])}</span><span class="q">+</span><span class="s">${esc(r[2])}${r[1]?" · "+esc(r[1]):""}</span></button>`}
+function labResHtml(){const r=S.lab.res;if(!r)return "";if(!r.length)return `<p class="hint" style="margin:0">Nic nenalezeno.</p>`;return `<div class="list">${r.map(labResLi).join("")}</div>`}
+function labSheetHtml(){
+  const pg=labPages();if(S.lab.page>pg.length-1)S.lab.page=Math.max(0,pg.length-1);
+  return LAB.svg(pg[S.lab.page]||new Array(48).fill(null),{preview:true,showNum:S.lab.showNum,usedQ:S.lab.usedQ,first:S.lab.page===0});
+}
+function labSummary(){const p=labPrintable(),n=p.reduce((a,b)=>a+b.q,0),pg=labPages().length;
+  return n?`<b>${fmt(n)}</b> štítků · <b>${pg}</b> ${pg===1?"arch":pg<5?"archy":"archů"}`:"Seznam je prázdný."}
+function labRefresh(){
+  const s=$("#labSheet");if(s)s.innerHTML=labSheetHtml();
+  const pg=labPages().length,pi=$("#labPi");if(pi)pi.textContent=`${pg?S.lab.page+1:1} / ${Math.max(1,pg)}`;
+  const sm=$("#labSum");if(sm)sm.innerHTML=labSummary();
+  const pb=$("#labPrintBtn");if(pb)pb.disabled=!pg;
+}
+const ICON_LAB='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3z"/><path d="M6 9v6M8.5 9v6M11 9v6M14 9v6M16 9v6M18.5 9v6" stroke-width="1.4"/></svg>';
+function viewLab(){
+  const L=S.lab,bad=L.items.filter(it=>!LAB.encodable(it.cis));
+  const rows=L.items.map((it,i)=>{const ed=L.names[it.cis]!=null;return `<div class="labrow${it.q>0?"":" off"}">
+      <div class="labrow-top"><span class="code">${esc(it.cis)}</span><span class="labqty"><button type="button" class="btn" data-lab="minus" data-i="${i}" aria-label="Méně">−</button><b>${fmt(it.q)}</b><button type="button" class="btn" data-lab="plus" data-i="${i}" aria-label="Více">+</button><button type="button" class="btn" data-lab="del" data-i="${i}" aria-label="Odebrat">×</button></span></div>
+      <div class="labname"><input type="text" id="labn~${esc(it.cis)}" data-labn="${i}" value="${esc(labName(it))}" title="V Cézaru: ${esc(it.n)}"${ed?' class="edited"':""} aria-label="Název na štítku"><button type="button" class="linkbtn" data-lab="reset" data-i="${i}"${ed?"":" hidden"} title="Vrátit název z Cézaru">původní</button></div>
+    </div>`}).join("");
+  return `<div class="labgrid">
+  <div class="labcol">
+    <section class="panel"><h2>Typ štítku</h2>
+      <div class="chips">${LAB_TYPES.map(t=>`<button type="button" class="chip" aria-pressed="${L.type===t.id}">${esc(t.name)}</button>`).join("")}</div>
+      <p class="hint" style="margin:0">${esc(LAB_TYPES.find(t=>t.id===L.type).desc)}</p></section>
+    <section class="panel"><h2>Přidat zboží</h2>
+      <form class="scanrow" id="labForm" autocomplete="off"><input type="search" id="labq" placeholder="Název, číslo zboží nebo EAN (i čtečkou)" value="${esc(L.q)}" enterkeyhint="search"><button class="btn" type="submit">Přidat</button></form>
+      <div id="labRes">${labResHtml()}</div>
+      ${L.paste?`<div class="labpaste"><textarea id="labPaste" rows="6" placeholder="Vložte sem export z Cézaru (Tisk/Mail → Export do clipboardu) nebo řádky: číslo zboží ; název ; počet"></textarea>
+        <div class="row"><button type="button" class="btn primary" data-lab="pasteGo">Přidat do seznamu</button><button type="button" class="btn" data-lab="pasteOff">Zavřít</button></div></div>`
+      :`<button type="button" class="btn" data-lab="pasteOn">Vložit seznam z Cézaru…</button>`}
+    </section>
+    <section class="panel"><div class="row" style="justify-content:space-between"><h2>Ke tisku</h2>${L.items.length?`<button type="button" class="linkbtn" data-lab="clear">${S.labConfClear?"Opravdu vymazat? Klikněte znovu":"Vymazat seznam"}</button>`:""}</div>
+      ${L.items.length?`<p class="hint" style="margin:0">Název na štítku můžete zkrátit, aplikace si ho u tohoto čísla zboží zapamatuje.</p><div class="lablist">${rows}</div>`:`<p class="hint" style="margin:0">Zatím nic. Najděte zboží nahoře nebo vložte seznam z Cézaru.</p>`}
+      ${bad.length?`<div class="warnbox">Bez čárového kódu (číslo obsahuje diakritiku): ${bad.map(b=>esc(b.cis)).join(", ")}</div>`:""}
+      <label class="toggle"><input type="checkbox" id="labNum" ${L.showNum?"checked":""}> Tisknout i číslo zboží (malým písmem)</label>
+    </section>
+    <section class="panel"><h2>Načatý arch</h2>
+      <div class="labq">${["Levé horní","Pravé horní","Levé dolní","Pravé dolní"].map((t,q)=>`<button type="button" data-labq="${q}" aria-pressed="${L.usedQ.includes(q)}">${t}</button>`).join("")}</div>
+      <p class="hint" style="margin:0">Klikněte na pole, která už na archu chybí. Štítky se plní pole po poli, nepoužitá pole zůstanou celá.</p></section>
+    <section class="panel"><p style="margin:0" id="labSum">${labSummary()}</p>
+      <button type="button" class="btn primary big" id="labPrintBtn" data-lab="print"${labPages().length?"":" disabled"}>Tisknout</button>
+      <p class="hint" style="margin:0">V tiskovém okně nechte Měřítko i Okraje na <b>Výchozí</b> (100 %). Poprvé zkuste obyčejný papír.</p></section>
+  </div>
+  <section class="panel labprev"><div class="row" style="justify-content:space-between"><h2>Náhled archu</h2>
+    <span class="row"><button type="button" class="btn" data-lab="prev" aria-label="Předchozí arch">‹</button><span id="labPi">${labPages().length?S.lab.page+1:1} / ${Math.max(1,labPages().length)}</span><button type="button" class="btn" data-lab="next" aria-label="Další arch">›</button></span></div>
+    <div class="labsheet" id="labSheet">${labSheetHtml()}</div>
+    <p class="hint" style="margin:0;text-align:center"><span style="color:#d9603f">– – –</span> kde se arch odlepuje (netiskne se) · <span style="color:#8c8c8c">——</span> čáry pro střih</p>
+  </section></div>`;
+}
+function labAction(act,b){
+  const L=S.lab,i=+b.dataset.i;
+  switch(act){
+    case "plus":L.items[i].q++;labSave();render();break;
+    case "minus":L.items[i].q=Math.max(0,L.items[i].q-1);labSave();render();break;
+    case "del":L.items.splice(i,1);labSave();render();break;
+    case "reset":delete L.names[L.items[i].cis];labSave();render();break;
+    case "clear":if(!S.labConfClear){S.labConfClear=true;render();setTimeout(()=>{if(S.labConfClear){S.labConfClear=false;if(S.module==="stitky")render()}},4000);break}
+      S.labConfClear=false;L.items=[];L.page=0;labSave();render();break;
+    case "pasteOn":L.paste=true;render();requestAnimationFrame(()=>$("#labPaste")?.focus());break;
+    case "pasteOff":L.paste=false;render();break;
+    case "pasteGo":{const n=labParsePaste($("#labPaste").value);if(!n){toast("V textu jsem nenašel žádné zboží");break}L.paste=false;toast(`Přidáno ${n} ${n===1?"položka":n<5?"položky":"položek"}`);render();break}
+    case "prev":if(L.page>0){L.page--;labRefresh()}break;
+    case "next":if(L.page<labPages().length-1){L.page++;labRefresh()}break;
+    case "print":labPrint();break;
+  }
+}
+function labSearch(submit){
+  const L=S.lab,q=fixScanner($("#labq")?.value||"");L.q=q;
+  if(!q){L.res=null}
+  else{const hit=lookupCode(q);
+    if(submit&&hit.length===1){const r=S.catalog[hit[0]];labAdd(r[2],r[0]);toast("Přidáno: "+r[0]);L.q="";L.res=null;$("#labq").value="";render();requestAnimationFrame(()=>$("#labq")?.focus());return}
+    L.res=hit.length?hit:searchText(q).slice(0,15);
+    if(submit&&L.res.length===1){const r=S.catalog[L.res[0]];labAdd(r[2],r[0]);toast("Přidáno: "+r[0]);L.q="";L.res=null;$("#labq").value="";render();requestAnimationFrame(()=>$("#labq")?.focus());return}
+  }
+  const el=$("#labRes");if(el)el.innerHTML=labResHtml();
+}
+function labPrint(){
+  const pg=labPages();if(!pg.length)return;
+  let box=$("#labPrint");if(!box){box=document.createElement("div");box.id="labPrint";document.body.appendChild(box)}
+  box.innerHTML=pg.map((s,i)=>`<div class="lpage">${LAB.svg(s,{preview:false,showNum:S.lab.showNum,usedQ:S.lab.usedQ,first:i===0})}</div>`).join("");
+  document.body.classList.add("labprinting");
+  setTimeout(()=>window.print(),60);
+}
+window.addEventListener("afterprint",()=>{document.body.classList.remove("labprinting");const b=$("#labPrint");if(b)b.innerHTML=""});
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b||S.module!=="stitky")return;
+  if(b.dataset.labadd){const r=itemRow(b.dataset.labadd);labAdd(b.dataset.labadd,r?r[0]:"");toast("Přidáno: "+(r?r[0]:b.dataset.labadd));S.lab.q="";S.lab.res=null;const inp=$("#labq");if(inp)inp.value="";render();return}
+  if(b.dataset.labq!=null){const q=+b.dataset.labq,u=S.lab.usedQ,i=u.indexOf(q);if(i>=0)u.splice(i,1);else u.push(q);S.lab.page=0;render();return}
+  if(b.dataset.lab){labAction(b.dataset.lab,b);return}
+});
+document.addEventListener("submit",e=>{if(e.target.id==="labForm"){e.preventDefault();labSearch(true)}},true);
+let labT;document.addEventListener("input",e=>{
+  if(S.module!=="stitky")return;
+  if(e.target.id==="labq"){clearTimeout(labT);labT=setTimeout(()=>labSearch(false),200)}
+  if(e.target.dataset.labn!=null){const it=S.lab.items[+e.target.dataset.labn];if(!it)return;const v=e.target.value;
+    if(v.trim()===String(it.n).trim())delete S.lab.names[it.cis];else S.lab.names[it.cis]=v;
+    e.target.classList.toggle("edited",S.lab.names[it.cis]!=null);const rb=e.target.parentNode.querySelector("[data-lab=reset]");if(rb)rb.hidden=S.lab.names[it.cis]==null;
+    labSave();clearTimeout(labT);labT=setTimeout(labRefresh,150)}
+});
+document.addEventListener("change",e=>{if(e.target.id==="labNum"){S.lab.showNum=e.target.checked;store.set("lab.num",S.lab.showNum);labRefresh()}});
+if(document.fonts&&document.fonts.load)Promise.all([document.fonts.load('700 20px "Barlow Condensed"'),document.fonts.load('500 20px "Barlow"')]).then(()=>{if(S.module==="stitky")labRefresh()}).catch(()=>{});
 
 /* ---------- events ---------- */
 document.addEventListener("click",async e=>{
