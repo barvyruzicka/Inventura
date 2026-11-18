@@ -858,7 +858,7 @@ let dlBusy=false,odbBusy=false;
 async function loadDl(){
   if(!API||!S.name||dlBusy)return; dlBusy=true;
   try{const r=await apiGet({a:"dl"});
-    if(r.ok){S.dl={rows:r.rows||[],use:r.use||{},loaded:true};connOk();
+    if(r.ok){S.dl={rows:r.rows||[],use:r.use||{},admins:r.admins||[],loaded:true};connOk();
       if(S.module==="dodaci"||S.module==="home"){const a=document.activeElement;if(!(a&&a.tagName==="INPUT"&&a.closest("#main"))&&!S.sigDrawing)render()}}
     else connFail(r);
   }catch(e){connFail()}finally{dlBusy=false}
@@ -1008,8 +1008,9 @@ function dlRowHtml(g){
       <button class="btn" type="button" data-dprint="${esc(c)}">Zobrazit / tisk</button>
       <button class="btn" type="button" data-dlact="csv" data-c="${esc(c)}">CSV pro Cézar</button>
       ${r[14]==="Vystaveno"?`<button class="btn" type="button" data-dlact="Vyfakturováno" data-c="${esc(c)}">Vyfakturováno</button>`:`<button class="btn" type="button" data-dlact="Vystaveno" data-c="${esc(c)}">Vrátit k fakturaci</button>`}
-      <button class="btn danger" type="button" data-dlact="Zrušeno" data-c="${esc(c)}">${S.dconf==="zrus|"+c?"Opravdu zrušit dodák?":"Zrušit dodák"}</button>
-    </div>`;
+      ${(S.dl.admins||[]).includes(S.name)?`<button class="btn danger" type="button" data-dlact="Zrušeno" data-c="${esc(c)}">${S.dconf==="zrus|"+c?"Opravdu zrušit dodák? Nejde vrátit":"Zrušit dodák"}</button>`:""}
+    </div>
+    ${(S.dl.admins||[]).includes(S.name)?"":`<p class="hint" style="margin:0 0 10px">Zrušit hotový dodák může jen ${esc((S.dl.admins||[]).join(" nebo "))}.</p>`}`;
   }
   return h;
 }
@@ -1017,7 +1018,7 @@ async function dlSet(cisla,stav,msg){
   try{await ordPost({a:"dl_set",cisla,stav});
     S.dl.rows.forEach(r=>{if(cisla.includes(r[1])){r[14]=stav;r[15]=Date.now();r[16]=S.name}});
     S.dl.rows=S.dl.rows.filter(r=>r[14]!=="Zrušeno");S.dsel=null;S.dconf=null;toast(msg);render();loadDl();
-  }catch(err){if(err.message!=="pin")toast("Nepodařilo se uložit. Zkontrolujte připojení.")}
+  }catch(err){if(err.message==="admin")toast("Zrušit dodák může jen "+(S.dl.admins||[]).join(" nebo "));else if(err.message!=="pin")toast("Nepodařilo se uložit. Zkontrolujte připojení.")}
 }
 async function saveCsvFile(name,lines,id){
   const blob=new Blob([lines.join("\r\n")+"\r\n"],{type:"text/csv"});
