@@ -603,7 +603,7 @@ function render(){
   if(keep){const el=document.getElementById(keep);if(el&&el.tagName==="INPUT"){el.focus({preventScroll:true});try{if(sel!=null)el.setSelectionRange(sel,sel)}catch(e){}}}
   if(S.view==="settings"&&API)drawQR();
   if(dod&&S.dstep==="finish"&&$("#sig"))sigInit();
-  if(dod&&S.dprint&&MOBIL)dlPdfPrepare(S.dprint);
+  if(dod&&S.dprint&&IOS)dlPdfPrepare(S.dprint);
 }
 function renderStatus(){
   const m=[]; const wait=S.pending.filter(p=>!S.seen.has(p.id)).length;
@@ -1119,6 +1119,9 @@ async function dlOprava(c,g){
 /* --- tisk --- */
 /* --- PDF dodáku pro mobil (iPhone v aplikaci z plochy neumí window.print) --- */
 const MOBIL=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+/* PDF místo tisku jen na iPhonu/iPadu – tam aplikace z plochy neumí window.print. Android tiskne normálně přes tiskový dialog (sdílení PDF tam nabídku Tisk nemá). */
+const IOS=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+function downloadFile(f){const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);toast("Soubor "+f.name+" je ve Stažených souborech")}
 const sigImg=p=>"data:image/svg+xml;charset=utf-8,"+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="340" viewBox="0 0 1000 340"><path d="${p.replace(/[^MLl0-9 .-]/g,"")}" fill="none" stroke="#111" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`);
 const libP={};function loadLib(u){return libP[u]||(libP[u]=new Promise((res,rej)=>{const s=document.createElement("script");s.src=u;s.onload=res;s.onerror=()=>{delete libP[u];rej(new Error("load"))};document.head.appendChild(s)}))}
 /* soubor na mobilu: iPhone v aplikaci z plochy neumí stahovat ani tisknout → nabídka Sdílet (Tisk, Uložit do Souborů, AirDrop, e-mail…) */
@@ -1171,7 +1174,7 @@ async function dlPdfShare(c){
   try{
     if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f],title:"Dodací list "+c});
     else{const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000)}
-  }catch(e){if(!(e&&e.name==="AbortError")){const u=URL.createObjectURL(f);window.open(u,"_blank")}}
+  }catch(e){if(!(e&&e.name==="AbortError"))downloadFile(f)}
 }
 
 function viewDlPrint(){
@@ -1187,7 +1190,7 @@ function viewDlPrint(){
   loadRazitko();
   const jed=x=>{const ir=x[7]?itemRow(x[7]):null;return ir&&ir[4]?ir[4]:"ks"};
   const adr=[o[4],[o[5],o[3]].filter(Boolean).join(" ")].filter(Boolean).join(", ");
-  return `<section class="panel noprint"><div class="actions"><button class="btn primary" type="button" id="dprintGo">${MOBIL?(S.pdfFor===c&&S.pdfFile?"Tisk / sdílet PDF":"Připravuji PDF…"):"Tisk / uložit PDF"}</button><button class="btn" type="button" id="dprintClose">Zpět</button></div>${sigNote?`<p class="hint" style="margin:8px 0 0">${sigNote}</p>`:""}${S.raz===""?`<p class="hint" style="margin:4px 0 0">Razítko se nenačetlo – tiskne se bez něj.</p>`:""}</section>
+  return `<section class="panel noprint"><div class="actions"><button class="btn primary" type="button" id="dprintGo">${IOS?(S.pdfFor===c&&S.pdfFile?"Tisk / sdílet PDF":"Připravuji PDF…"):"Tisk / uložit PDF"}</button><button class="btn" type="button" id="dprintClose">Zpět</button></div>${sigNote?`<p class="hint" style="margin:8px 0 0">${sigNote}</p>`:""}${S.raz===""?`<p class="hint" style="margin:4px 0 0">Razítko se nenačetlo – tiskne se bez něj.</p>`:""}</section>
   <section class="printdoc dls">
     <div class="top"><img class="logo" src="${LOGO_DL}" alt="Růžička"><div class="doc"><b>DODACÍ LIST</b><span>${esc(c)}</span><div>Datum: ${new Date(r[2]).toLocaleDateString("cs-CZ")}</div></div></div>
     <div class="boxes">
@@ -1549,8 +1552,8 @@ function viewLab(){
       <div class="labq">${["Levé horní","Pravé horní","Levé dolní","Pravé dolní"].map((t,q)=>`<button type="button" data-labq="${q}" aria-pressed="${L.usedQ.includes(q)}">${t}</button>`).join("")}</div>
       <p class="hint" style="margin:0">Klikněte na pole, která už na archu chybí. Štítky se plní pole po poli, nepoužitá pole zůstanou celá.</p></section>
     <section class="panel"><p style="margin:0" id="labSum">${labSummary()}</p>
-      <button type="button" class="btn primary big" id="labPrintBtn" data-lab="print"${labPages().length?"":" disabled"}>${MOBIL?"Tisk / sdílet PDF":"Tisknout"}</button>
-      <p class="hint" style="margin:0">${MOBIL?"Vytvoří se PDF archu ve skutečné velikosti. V nabídce zvolte <b>Tisk</b> (nebo Uložit do Souborů / poslat na počítač). U tiskárny nastavte papír A4 a měřítko 100 %, nic nezmenšovat. Poprvé zkuste obyčejný papír.":"V tiskovém okně nechte Měřítko i Okraje na <b>Výchozí</b> (100 %). Poprvé zkuste obyčejný papír."}</p></section>
+      <button type="button" class="btn primary big" id="labPrintBtn" data-lab="print"${labPages().length?"":" disabled"}>${IOS?"Tisk / sdílet PDF":"Tisknout"}</button>
+      <p class="hint" style="margin:0">${IOS?"Vytvoří se PDF archu ve skutečné velikosti. V nabídce zvolte <b>Tisk</b> (nebo Uložit do Souborů / poslat na počítač). U tiskárny nastavte papír A4 a měřítko 100 %, nic nezmenšovat. Poprvé zkuste obyčejný papír.":"V tiskovém okně nechte Měřítko i Okraje na <b>Výchozí</b> (100 %). Poprvé zkuste obyčejný papír."}</p></section>
   </div>
   <section class="panel labprev"><div class="row" style="justify-content:space-between"><h2>Náhled archu</h2>
     <span class="row"><button type="button" class="btn" data-lab="prev" aria-label="Předchozí arch">‹</button><span id="labPi">${labPages().length?S.lab.page+1:1} / ${Math.max(1,labPages().length)}</span><button type="button" class="btn" data-lab="next" aria-label="Další arch">›</button></span></div>
@@ -1610,7 +1613,7 @@ function labPdfBuild(){
   const d=new Date(),p2=n=>String(n).padStart(2,"0");
   return new File([pdf.output("blob")],`Stitky-${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}.pdf`,{type:"application/pdf"});
 }
-function labPdfPreload(){if(MOBIL&&!window.jspdf)loadLib(JSPDF_URL).catch(()=>{})}
+function labPdfPreload(){if(IOS&&!window.jspdf)loadLib(JSPDF_URL).catch(()=>{})}
 function labPdf(){
   if(!labPages().length)return;
   if(!window.jspdf){toast("Připravuji tisk, za chvilku klepněte znovu");loadLib(JSPDF_URL).catch(()=>toast("Nepodařilo se načíst – zkontrolujte internet"));return}
@@ -1619,11 +1622,11 @@ function labPdf(){
   catch(e){toast("PDF se nepodařilo vytvořit");return}
   const f=S.lab.pdf;
   if(mobilShare(f,"Štítky"))return;
-  const u=URL.createObjectURL(f);window.open(u,"_blank");
+  downloadFile(f);
 }
 function labPrint(){
   const pg=labPages();if(!pg.length)return;
-  if(MOBIL){labPdf();return}
+  if(IOS){labPdf();return}
   let box=$("#labPrint");if(!box){box=document.createElement("div");box.id="labPrint";document.body.appendChild(box)}
   box.innerHTML=pg.map((s,i)=>`<div class="lpage">${LAB.svg(s,{preview:false,showNum:S.lab.showNum,usedQ:S.lab.usedQ,first:i===0})}</div>`).join("");
   document.body.classList.add("labprinting");
@@ -1700,7 +1703,7 @@ document.addEventListener("click",async e=>{
     case "dlRemove":{const d=dlDraft(),k=S.current;const i=k.startsWith("#")?+k.slice(1):d.items.findIndex(y=>y.cis===k);if(i>=0){toast("Odebráno: "+d.items[i].nm);d.items.splice(i,1);dlSaveDraft()}S.current=null;afterSave();break}
     case "dlDiscard":if(S.dconf!=="discard"){S.dconf="discard";render();break}S.dconf=null;S.dd={id:uid(),odb:null,items:[]};dlSaveDraft();SIG.pts=[];S.current=null;toast("Rozpracovaný dodák zahozen");render();window.scrollTo(0,0);break;
     case "dprintGo":if((S.sigSvg===null&&!S.sigErr)||S.razLoad){toast("Počkejte, načítá se podpis a razítko");break}
-      if(MOBIL){dlPdfShare(S.dprint);break}
+      if(IOS){dlPdfShare(S.dprint);break}
       document.body.classList.add("dlprinting");setTimeout(()=>window.print(),50);break;
     case "dsigRetry":S.sigFor=null;S.pdfFor=null;S.pdfFile=null;render();break;
     case "dprintClose":S.dprint=null;render();break;
