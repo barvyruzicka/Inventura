@@ -607,7 +607,7 @@ function render(){
 }
 function renderStatus(){
   const m=[]; const wait=S.pending.filter(p=>!S.seen.has(p.id)).length;
-  if(S.conn==="key")m.push(`<div class="banner bad">Tabulka odmítla klíč v odkazu. Otevřete znovu odkaz z tabulky (menu BLR App → 2) Odkaz pro telefony).</div>`);
+  if(S.conn==="key")m.push(`<div class="banner bad">Tabulka odmítla klíč v odkazu. Otevřete znovu odkaz z tabulky (menu Tukan → 2) Odkaz pro telefony).</div>`);
   else if(S.conn==="offline")m.push(`<div class="banner warn">Bez spojení s tabulkou.${wait?` ${wait} ${wait===1?"zápis čeká":wait<5?"zápisy čekají":"zápisů čeká"} v telefonu a odešle se samo.`:""}</div>`);
   if(S.catState==="empty")m.push(`<div class="banner warn">V tabulce chybí seznam zboží. Vložte export z Cézara do listu „Katalog“.</div>`);
   if(S.catError)m.push(`<div class="banner bad">${esc(S.catError)}</div>`);
@@ -616,7 +616,7 @@ function renderStatus(){
 }
 function viewSetup(){
   return `<section class="panel"><h2>Propojení s tabulkou</h2>
-  <p style="margin:0">Stránka ještě neví, kam zapisovat. Otevřete odkaz, který zobrazí Google tabulka v menu <b>BLR App → 2) Odkaz pro telefony</b>, nebo naskenujte QR kód z jiného telefonu. Případně odkaz vložte sem:</p>
+  <p style="margin:0">Stránka ještě neví, kam zapisovat. Otevřete odkaz, který zobrazí Google tabulka v menu <b>Tukan → 2) Odkaz pro telefony</b>, nebo naskenujte QR kód z jiného telefonu. Případně odkaz vložte sem:</p>
   <form class="scanrow" id="setupForm"><input type="url" id="setupIn" placeholder="https://…?api=…&k=…"><button class="btn primary" type="submit">Připojit</button></form></section>`;
 }
 function viewScan(){
@@ -927,7 +927,7 @@ function viewDlNew(){
     else{list=S.odb.rows.filter(r=>S.dl.use[r[0]]).sort((a,b)=>S.dl.use[b[0]]-S.dl.use[a[0]]).slice(0,25);title="Nejčastější odběratelé"}
     return `<section class="panel"><h2>1. Pro koho je dodací list?</h2>
       <input type="search" id="dodbq" placeholder="Název firmy, IČO nebo město" value="${esc(S.dq||"")}" aria-label="Hledat odběratele" autocomplete="off">
-      ${!S.odb.loaded?`<p class="hint" style="margin:0">Načítám odběratele…</p>`:!S.odb.rows.length?`<div class="warnbox">V tabulce zatím nejsou odběratelé. V Google tabulce dejte menu <b>BLR App → Odběratelé: načíst z Disku</b>.</div>`:""}
+      ${!S.odb.loaded?`<p class="hint" style="margin:0">Načítám odběratele…</p>`:!S.odb.rows.length?`<div class="warnbox">V tabulce zatím nejsou odběratelé. V Google tabulce dejte menu <b>Tukan → Odběratelé: načíst z Disku</b>.</div>`:""}
       ${d.items.length?`<div class="warnbox">Rozpracovaný dodací list má ${d.items.length} pol. – po výběru firmy pokračujete v něm.</div>`:""}</section>
       ${list.length?`<section class="panel"><h2>${title}</h2><div class="list">${list.map(odbLi).join("")}</div></section>`
         :S.odb.rows.length?`<section class="panel"><p class="hint" style="margin:0">${q?"Nic nenalezeno. Zkuste jinou část názvu nebo IČO.":"Zatím žádné dodací listy. Napište nahoru název firmy."}</p></section>`:""}`;
@@ -1029,7 +1029,7 @@ const dlInCz=r=>typeof r[17]==="number"||r[14]==="Vyfakturováno";
 const dlWait=r=>r[14]==="Vystaveno"&&!dlInCz(r);
 function dlCzInfo(){const z=S.dl.cz;if(!z)return "";
   if(z.stop)return `<div class="warnbox">Probíhá inventura – dodáky se do Cézaru předají až po jejím ukončení.</div>`;
-  if(!z.on)return `<div class="warnbox">Automatické předávání do Cézaru je vypnuté (tabulka → menu BLR App → Dodáky → Cézar).</div>`;
+  if(!z.on)return `<div class="warnbox">Automatické předávání do Cézaru je vypnuté (tabulka → menu Tukan → Dodáky → Cézar).</div>`;
   return `<p class="hint" style="margin:0">Dodáky se do Cézaru předávají samy každou hodinu jako výdejky${z.at?` · naposledy ${esc(z.at)}`:""}. Fakturuje se hromadně v Cézaru.</p>`}
 function viewDlList(){
   const F={wait:dlWait,cz:r=>dlInCz(r),vse:()=>true};
@@ -1236,7 +1236,7 @@ function viewLogin(){
     <button class="btn" type="button" id="pickMode">Zpět na seznam jmen</button></section>`;
   const names=S.people;
   return `<section class="panel"><h2>Kdo počítá?</h2>${msg}
-    ${names==null?`<p class="hint" style="margin:0">Načítám seznam lidí…</p>`:names.length?`<div class="chips">${names.map(n=>`<button type="button" class="chip" style="font-size:17px;padding:13px 16px" data-who="${esc(n)}">${esc(n)}</button>`).join("")}</div>`:`<p class="hint" style="margin:0">V tabulce zatím nikdo není. Majitel spustí v tabulce BLR App → 1) Připravit tabulku.</p>`}
+    ${names==null?`<p class="hint" style="margin:0">Načítám seznam lidí…</p>`:names.length?`<div class="chips">${names.map(n=>`<button type="button" class="chip" style="font-size:17px;padding:13px 16px" data-who="${esc(n)}">${esc(n)}</button>`).join("")}</div>`:`<p class="hint" style="margin:0">V tabulce zatím nikdo není. Majitel spustí v tabulce menu Tukan → 1) Připravit tabulku.</p>`}
     <button class="btn" type="button" id="joinMode">Nový pomocník</button></section>`;
 }
 async function loadPeople(){
