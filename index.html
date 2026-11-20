@@ -870,7 +870,7 @@ async function supAction(act,sup,b){
     if(window.showSaveFilePicker&&!/Android|iPhone|iPad/i.test(navigator.userAgent)){
       try{const fh=await showSaveFilePicker({id:"blr-obj-csv",suggestedName:name,types:[{description:"CSV",accept:{"text/csv":[".csv"]}}]});const w=await fh.createWritable();await w.write(blob);await w.close()}
       catch(err){if(err&&err.name==="AbortError")return;toast("Uložení se nepovedlo");return}
-    }else{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000)}
+    }else saveBlob(blob,name);
     toast(`${lines.length} řádků uloženo`+(bal.length?` · ${bal.length} v baleních – zkontrolujte počet`:"")+(skip?` · ${skip} bez kódu zadejte ručně`:""));return;
   }
   if(act==="copy"){
@@ -1081,7 +1081,7 @@ async function saveCsvFile(name,lines,id){
     try{const fh=await showSaveFilePicker({id,suggestedName:name,types:[{description:"CSV",accept:{"text/csv":[".csv"]}}]});const w=await fh.createWritable();await w.write(blob);await w.close();return true}
     catch(err){if(!(err&&err.name==="AbortError"))toast("Uložení se nepovedlo");return false}
   }
-  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);return true;
+  saveBlob(blob,name);return true;
 }
 const fileSafe=s=>String(s).normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9]+/g,"_").replace(/^_|_$/g,"").slice(0,40);
 async function dlCsv(items,label){
@@ -1119,6 +1119,22 @@ async function dlOprava(c,g){
 const MOBIL=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
 const sigImg=p=>"data:image/svg+xml;charset=utf-8,"+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="340" viewBox="0 0 1000 340"><path d="${p.replace(/[^MLl0-9 .-]/g,"")}" fill="none" stroke="#111" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`);
 const libP={};function loadLib(u){return libP[u]||(libP[u]=new Promise((res,rej)=>{const s=document.createElement("script");s.src=u;s.onload=res;s.onerror=()=>{delete libP[u];rej(new Error("load"))};document.head.appendChild(s)}))}
+/* soubor na mobilu: iPhone v aplikaci z plochy neumí stahovat ani tisknout → nabídka Sdílet (Tisk, Uložit do Souborů, AirDrop, e-mail…) */
+function mobilShare(file,title){
+  if(!(MOBIL&&navigator.canShare&&navigator.share))return false;
+  try{if(!navigator.canShare({files:[file]}))return false}catch(e){return false}
+  navigator.share({files:[file],title:title||file.name}).catch(err=>{
+    if(err&&err.name==="AbortError")return;
+    if(err&&err.name==="NotAllowedError"){toast("Soubor je připravený, klepněte na tlačítko ještě jednou");return}
+    toast("Sdílení se nepovedlo");
+  });
+  return true;
+}
+function saveBlob(blob,name,title){
+  const f=new File([blob],name,{type:blob.type||"application/octet-stream"});
+  if(mobilShare(f,title))return;
+  const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);
+}
 let pdfBusy=null;
 function dlPdfPrepare(c){
   if(S.pdfFor===c&&(S.pdfFile||pdfBusy))return;
@@ -1193,6 +1209,7 @@ function goModule(m){
   S.current=null;S.choices=null;S.results=null;S.notFound=null;S.query="";
   if(S.module==="objednavky"){S.ofix="";S.oview="add";loadOrders()}
   if(S.module==="dodaci"){S.dview="new";S.dprint=null;S.dlDone=null;S.dq="";loadDl();loadOdb()}
+  if(S.module==="stitky")labPdfPreload();
   const want=S.module==="home"?"":"#"+S.module;
   if(location.hash!==want)history.replaceState(null,"",location.pathname+location.search+want);
   render();window.scrollTo(0,0);
@@ -1351,7 +1368,9 @@ function exportXlsx(){
   if(unk.length){const u=[["Popis","Načtený kód","Sklad","Obchod","Míchárna","Celkem"]];unk.forEach(([k,o])=>u.push([o.n||"",k.slice(1),o.SKLAD,o.OBCHOD,o.MICHARNA,o.ALL]));XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(u),"Mimo katalog")}
   if(S.inv&&S.inv.start){const info=[["Inventura zahájena",S.inv.start],["Stavy z Cézaru k",S.inv.stav||""],["Ukončena",S.inv.end||""],["Export z aplikace",new Date().toLocaleString("cs-CZ")]];
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(info),"Info");}
-  XLSX.writeFile(wb,`Inventura-${invStamp()}.xlsx`);
+  const xname=`Inventura-${invStamp()}.xlsx`;
+  if(MOBIL)saveBlob(new Blob([XLSX.write(wb,{bookType:"xlsx",type:"array"})],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),xname);
+  else XLSX.writeFile(wb,xname);
 }
 
 function exportCsv(){
@@ -1362,8 +1381,7 @@ function exportCsv(){
   });
   const unk=[...t].filter(([k,o])=>k.startsWith("?")&&o.ALL>0).length;
   const name=`Inventura-Cezar-${invStamp()}.csv`;
-  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([lines.join("\r\n")+"\r\n"],{type:"text/csv"}));a.download=name;
-  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);
+  saveBlob(new Blob([lines.join("\r\n")+"\r\n"],{type:"text/csv"}),name);
   toast(`${fmt(lines.length)} řádků uloženo`+(unk?` · ${unk} neznámých položek dořešte ručně`:""));
 }
 
@@ -1455,7 +1473,7 @@ const LAB=(()=>{
       s+=`<rect x="${x+2}" y="${y+2}" width="101" height="144.5" fill="#f1efe9" rx="2"/><text x="${x+52.5}" y="${y+75}" font-size="5" text-anchor="middle" fill="#9a958b" font-family='${NUM_FONT}'>pole už chybí</text>`});
     return s+"</svg>";
   }
-  return {pages,svg,encodable};
+  return {pages,svg,encodable,layout,G};
 })();
 
 /* stav modulu: seznam ke tisku a upravené názvy si pamatuje tento počítač */
@@ -1528,8 +1546,8 @@ function viewLab(){
       <div class="labq">${["Levé horní","Pravé horní","Levé dolní","Pravé dolní"].map((t,q)=>`<button type="button" data-labq="${q}" aria-pressed="${L.usedQ.includes(q)}">${t}</button>`).join("")}</div>
       <p class="hint" style="margin:0">Klikněte na pole, která už na archu chybí. Štítky se plní pole po poli, nepoužitá pole zůstanou celá.</p></section>
     <section class="panel"><p style="margin:0" id="labSum">${labSummary()}</p>
-      <button type="button" class="btn primary big" id="labPrintBtn" data-lab="print"${labPages().length?"":" disabled"}>Tisknout</button>
-      <p class="hint" style="margin:0">V tiskovém okně nechte Měřítko i Okraje na <b>Výchozí</b> (100 %). Poprvé zkuste obyčejný papír.</p></section>
+      <button type="button" class="btn primary big" id="labPrintBtn" data-lab="print"${labPages().length?"":" disabled"}>${MOBIL?"Tisk / sdílet PDF":"Tisknout"}</button>
+      <p class="hint" style="margin:0">${MOBIL?"Vytvoří se PDF archu ve skutečné velikosti. V nabídce zvolte <b>Tisk</b> (nebo Uložit do Souborů / poslat na počítač). U tiskárny nastavte papír A4 a měřítko 100 %, nic nezmenšovat. Poprvé zkuste obyčejný papír.":"V tiskovém okně nechte Měřítko i Okraje na <b>Výchozí</b> (100 %). Poprvé zkuste obyčejný papír."}</p></section>
   </div>
   <section class="panel labprev"><div class="row" style="justify-content:space-between"><h2>Náhled archu</h2>
     <span class="row"><button type="button" class="btn" data-lab="prev" aria-label="Předchozí arch">‹</button><span id="labPi">${labPages().length?S.lab.page+1:1} / ${Math.max(1,labPages().length)}</span><button type="button" class="btn" data-lab="next" aria-label="Další arch">›</button></span></div>
@@ -1565,8 +1583,44 @@ function labSearch(submit){
   }
   const el=$("#labRes");if(el)el.innerHTML=labResHtml();
 }
+/* PDF archu štítků (mobil): text vykreslený do obrázku 300 dpi (kvůli češtině a písmu Barlow),
+   čárové kódy a čáry pro střih vektorově – přesné rozměry, A4 ve skutečné velikosti */
+const JSPDF_URL="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+const labKey=()=>JSON.stringify([labPrintable(),S.lab.usedQ,S.lab.showNum]);
+function labPdfBuild(){
+  const pg=labPages(),DPI=300,k=DPI/25.4,W=Math.round(210*k),H=Math.round(297*k);
+  const cv=document.createElement("canvas");cv.width=W;cv.height=H;const x=cv.getContext("2d");
+  const pdf=new window.jspdf.jsPDF({unit:"mm",format:"a4",orientation:"portrait",compress:true});
+  pg.forEach((slots,i)=>{
+    const ops=LAB.layout(slots,S.lab.showNum);
+    x.setTransform(1,0,0,1,0,0);x.fillStyle="#fff";x.fillRect(0,0,W,H);x.fillStyle="#000";x.textAlign="center";x.textBaseline="alphabetic";
+    ops.forEach(o=>{if(o.t!=="t")return;
+      x.font=(o.bold?'700 ':'500 ')+(o.size*0.35278*k).toFixed(2)+'px '+(o.bold?'"Barlow Condensed","Arial Narrow",sans-serif':'"Barlow",Arial,sans-serif');
+      x.fillText(o.s,o.x*k,o.y*k)});
+    if(i)pdf.addPage("a4","portrait");
+    pdf.addImage(cv.toDataURL("image/jpeg",0.95),"JPEG",0,0,210,297,undefined,"FAST");
+    pdf.setDrawColor(140,140,140);pdf.setLineWidth(0.2);
+    ops.forEach(o=>{if(o.t==="l")pdf.line(o.x1,o.y1,o.x2,o.y2)});
+    pdf.setFillColor(0,0,0);
+    ops.forEach(o=>{if(o.t==="r")pdf.rect(o.x,o.y,o.w,o.h,"F")});
+  });
+  const d=new Date(),p2=n=>String(n).padStart(2,"0");
+  return new File([pdf.output("blob")],`Stitky-${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}.pdf`,{type:"application/pdf"});
+}
+function labPdfPreload(){if(MOBIL&&!window.jspdf)loadLib(JSPDF_URL).catch(()=>{})}
+function labPdf(){
+  if(!labPages().length)return;
+  if(!window.jspdf){toast("Připravuji tisk, za chvilku klepněte znovu");loadLib(JSPDF_URL).catch(()=>toast("Nepodařilo se načíst – zkontrolujte internet"));return}
+  const key=labKey();
+  try{if(!S.lab.pdf||S.lab.pdfKey!==key){S.lab.pdf=labPdfBuild();S.lab.pdfKey=key}}
+  catch(e){toast("PDF se nepodařilo vytvořit");return}
+  const f=S.lab.pdf;
+  if(mobilShare(f,"Štítky"))return;
+  const u=URL.createObjectURL(f);window.open(u,"_blank");
+}
 function labPrint(){
   const pg=labPages();if(!pg.length)return;
+  if(MOBIL){labPdf();return}
   let box=$("#labPrint");if(!box){box=document.createElement("div");box.id="labPrint";document.body.appendChild(box)}
   box.innerHTML=pg.map((s,i)=>`<div class="lpage">${LAB.svg(s,{preview:false,showNum:S.lab.showNum,usedQ:S.lab.usedQ,first:i===0})}</div>`).join("");
   document.body.classList.add("labprinting");
@@ -1690,7 +1744,7 @@ async function start(){
   setInterval(()=>{if(!document.hidden){poll();flush()}},5000);
   setInterval(()=>{if(!document.hidden&&S.module==="objednavky"&&S.name)loadOrders()},10000);
   setInterval(()=>{if(!document.hidden&&S.module==="dodaci"&&S.name&&S.dview==="list"&&!S.dprint)loadDl()},15000);
-  loadDl(); if(S.module==="dodaci")loadOdb();
+  loadDl(); if(S.module==="dodaci")loadOdb(); if(S.module==="stitky")labPdfPreload();
 }
 start();
 if("serviceWorker" in navigator&&location.protocol==="https:"){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})})}
