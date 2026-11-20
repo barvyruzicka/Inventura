@@ -215,6 +215,16 @@ body.wide #main{width:100%}
 .labq button{border:1px solid var(--line);border-radius:5px;background:#fff;color:#1d2420;font:600 13px/1.2 var(--f-ui);cursor:pointer;padding:4px}
 .labq button[aria-pressed="true"]{background:repeating-linear-gradient(135deg,#e6e3dc 0 6px,#f3f1ec 6px 12px);color:#8f8a80;text-decoration:line-through}
 #labPrint{display:none}
+#imgPrint{display:none}
+@page ipg{size:A4 portrait;margin:0}
+@media print{
+  body.imgprinting{padding:0!important;margin:0!important;background:#fff!important}
+  body.imgprinting::before,body.imgprinting>.wrap,body.imgprinting>nav,body.imgprinting>.toast{display:none!important}
+  body.imgprinting #imgPrint{display:block}
+  .ipage{page:ipg;width:210mm;height:297mm;overflow:hidden;break-after:page}
+  .ipage:last-child{break-after:auto}
+  .ipage img{display:block;width:210mm;height:auto}
+}
 @page lab{size:A4 portrait;margin:0}
 @media print{
   body.labprinting{padding:0!important;margin:0!important;background:#fff!important}
@@ -603,7 +613,7 @@ function render(){
   if(keep){const el=document.getElementById(keep);if(el&&el.tagName==="INPUT"){el.focus({preventScroll:true});try{if(sel!=null)el.setSelectionRange(sel,sel)}catch(e){}}}
   if(S.view==="settings"&&API)drawQR();
   if(dod&&S.dstep==="finish"&&$("#sig"))sigInit();
-  if(dod&&S.dprint&&IOS)dlPdfPrepare(S.dprint);
+  if(dod&&S.dprint&&MOBIL)dlPdfPrepare(S.dprint);
 }
 function renderStatus(){
   const m=[]; const wait=S.pending.filter(p=>!S.seen.has(p.id)).length;
@@ -1145,7 +1155,7 @@ function dlPdfPrepare(c){
   if(S.pdfFor===c&&(S.pdfFile||pdfBusy))return;
   if((S.sigSvg===null&&!S.sigErr)||S.razLoad||S.sigFor!==c)return;
   const doc=document.querySelector(".printdoc");if(!doc)return;
-  S.pdfFor=c;S.pdfFile=null;
+  S.pdfFor=c;S.pdfFile=null;S.pdfImgs=null;
   pdfBusy=(async()=>{
     try{
       await Promise.all([loadLib("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"),loadLib("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js")]);
@@ -1156,16 +1166,16 @@ function dlPdfPrepare(c){
       await Promise.all([...cl.querySelectorAll("img")].map(i=>i.complete?0:new Promise(r=>{i.onload=i.onerror=r})));
       const cv=await html2canvas(cl,{scale:2,backgroundColor:"#ffffff",logging:false});cl.remove();
       const pdf=new window.jspdf.jsPDF({unit:"mm",format:"a4",compress:true});
-      const pw=210,ph=297,pxPerPage=Math.floor(cv.width*ph/pw);
+      const imgs=[],pw=210,ph=297,pxPerPage=Math.floor(cv.width*ph/pw);
       for(let y=0,i=0;y<cv.height;y+=pxPerPage,i++){
         const h=Math.min(pxPerPage,cv.height-y),part=document.createElement("canvas");part.width=cv.width;part.height=h;
         const x=part.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,part.width,h);x.drawImage(cv,0,y,cv.width,h,0,0,cv.width,h);
-        if(i)pdf.addPage();pdf.addImage(part.toDataURL("image/jpeg",0.92),"JPEG",0,0,pw,h*pw/cv.width);
+        const du=part.toDataURL("image/jpeg",0.92);imgs.push(du);if(i)pdf.addPage();pdf.addImage(du,"JPEG",0,0,pw,h*pw/cv.width);
       }
       if(S.pdfFor!==c)return;
-      S.pdfFile=new File([pdf.output("blob")],`Dodaci-list-${c}.pdf`,{type:"application/pdf"});
+      S.pdfFile=new File([pdf.output("blob")],`Dodaci-list-${c}.pdf`,{type:"application/pdf"});S.pdfImgs=imgs;
     }catch(e){S.pdfFor=null;S.pdfErr=true;toast("PDF se nepodařilo připravit – zkontrolujte internet")}
-    finally{pdfBusy=null;const b=$("#dprintGo");if(b&&S.dprint===c)b.textContent=S.pdfFile?"Tisk / sdílet PDF":"Zkusit znovu"}
+    finally{pdfBusy=null;const b=$("#dprintGo");if(b&&S.dprint===c)b.textContent=S.pdfFile?(IOS?"Tisk / sdílet PDF":"Tisknout"):"Zkusit znovu"}
   })();
 }
 async function dlPdfShare(c){
@@ -1177,6 +1187,14 @@ async function dlPdfShare(c){
   }catch(e){if(!(e&&e.name==="AbortError"))downloadFile(f)}
 }
 
+/* Android: tiskne se hotový obrázek A4 (stejný jako PDF na iPhonu) přes tiskový dialog – telefon jinak zmenší stránku podle šířky displeje a přidá záhlaví s adresou */
+function dlImgPrint(c){
+  if(!(S.pdfFor===c&&S.pdfImgs&&S.pdfImgs.length)){if(!pdfBusy){S.pdfFor=null;dlPdfPrepare(c)}toast("Připravuji tisk, za chvilku klepněte znovu");return}
+  let box=$("#imgPrint");if(!box){box=document.createElement("div");box.id="imgPrint";document.body.appendChild(box)}
+  box.innerHTML=S.pdfImgs.map(u=>`<div class="ipage"><img src="${u}" alt=""></div>`).join("");
+  document.body.classList.add("imgprinting");
+  Promise.all([...box.querySelectorAll("img")].map(i=>i.complete?0:new Promise(r=>{i.onload=i.onerror=r}))).then(()=>setTimeout(()=>window.print(),80));
+}
 function viewDlPrint(){
   const c=S.dprint, g=S.dl.rows.filter(r=>r[1]===c); if(!g.length)return `<section class="panel"><p>Dodací list ${esc(c)} nenalezen.</p><button class="btn" type="button" id="dprintClose">Zpět</button></section>`;
   const r=g[0], o=odbOf(r[4])||[r[4],r[5],r[6],"","","",""];
@@ -1190,7 +1208,7 @@ function viewDlPrint(){
   loadRazitko();
   const jed=x=>{const ir=x[7]?itemRow(x[7]):null;return ir&&ir[4]?ir[4]:"ks"};
   const adr=[o[4],[o[5],o[3]].filter(Boolean).join(" ")].filter(Boolean).join(", ");
-  return `<section class="panel noprint"><div class="actions"><button class="btn primary" type="button" id="dprintGo">${IOS?(S.pdfFor===c&&S.pdfFile?"Tisk / sdílet PDF":"Připravuji PDF…"):"Tisk / uložit PDF"}</button><button class="btn" type="button" id="dprintClose">Zpět</button></div>${sigNote?`<p class="hint" style="margin:8px 0 0">${sigNote}</p>`:""}${S.raz===""?`<p class="hint" style="margin:4px 0 0">Razítko se nenačetlo – tiskne se bez něj.</p>`:""}</section>
+  return `<section class="panel noprint"><div class="actions"><button class="btn primary" type="button" id="dprintGo">${MOBIL?(S.pdfFor===c&&S.pdfFile?(IOS?"Tisk / sdílet PDF":"Tisknout"):"Připravuji tisk…"):"Tisk / uložit PDF"}</button><button class="btn" type="button" id="dprintClose">Zpět</button></div>${sigNote?`<p class="hint" style="margin:8px 0 0">${sigNote}</p>`:""}${S.raz===""?`<p class="hint" style="margin:4px 0 0">Razítko se nenačetlo – tiskne se bez něj.</p>`:""}</section>
   <section class="printdoc dls">
     <div class="top"><img class="logo" src="${LOGO_DL}" alt="Růžička"><div class="doc"><b>DODACÍ LIST</b><span>${esc(c)}</span><div>Datum: ${new Date(r[2]).toLocaleDateString("cs-CZ")}</div></div></div>
     <div class="boxes">
@@ -1632,7 +1650,7 @@ function labPrint(){
   document.body.classList.add("labprinting");
   setTimeout(()=>window.print(),60);
 }
-window.addEventListener("afterprint",()=>{document.body.classList.remove("labprinting","dlprinting");const b=$("#labPrint");if(b)b.innerHTML=""});
+window.addEventListener("afterprint",()=>{document.body.classList.remove("labprinting","dlprinting","imgprinting");const b=$("#labPrint");if(b)b.innerHTML="";const ip=$("#imgPrint");if(ip)ip.innerHTML=""});
 document.addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b||S.module!=="stitky")return;
   if(b.dataset.labadd){const r=itemRow(b.dataset.labadd);labAdd(b.dataset.labadd,r?r[0]:"");toast("Přidáno: "+(r?r[0]:b.dataset.labadd));const sc=$(".labres")?.scrollTop||0;render();const l=$(".labres");if(l)l.scrollTop=sc;return}
@@ -1704,6 +1722,7 @@ document.addEventListener("click",async e=>{
     case "dlDiscard":if(S.dconf!=="discard"){S.dconf="discard";render();break}S.dconf=null;S.dd={id:uid(),odb:null,items:[]};dlSaveDraft();SIG.pts=[];S.current=null;toast("Rozpracovaný dodák zahozen");render();window.scrollTo(0,0);break;
     case "dprintGo":if((S.sigSvg===null&&!S.sigErr)||S.razLoad){toast("Počkejte, načítá se podpis a razítko");break}
       if(IOS){dlPdfShare(S.dprint);break}
+      if(MOBIL){dlImgPrint(S.dprint);break}
       document.body.classList.add("dlprinting");setTimeout(()=>window.print(),50);break;
     case "dsigRetry":S.sigFor=null;S.pdfFor=null;S.pdfFile=null;render();break;
     case "dprintClose":S.dprint=null;render();break;
