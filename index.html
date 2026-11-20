@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1f4fa8">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="BLR App">
+<meta name="apple-mobile-web-app-title" content="Tukan">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<title>BLR App</title>
+<title>Tukan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap&subset=latin-ext">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -231,7 +231,7 @@ body.wide #main{width:100%}
   <header>
     <div class="top">
       <button class="back" id="homeBtn" type="button" hidden aria-label="Zpět do menu">‹ Menu</button>
-      <h1 id="appTitle"><img src="icon-192.png" alt="" class="logo" id="appLogo">BLR App</h1>
+      <h1 id="appTitle"><img src="icon-192.png" alt="" class="logo" id="appLogo">Tukan</h1>
       <button class="who" id="whoBtn" type="button"><span id="whoName">nepřihlášen</span></button>
     </div>
     <div class="areas" id="areas" role="group" aria-label="Úsek"></div>
@@ -580,7 +580,7 @@ function render(){
   const inv=S.module==="inventura", ord=S.module==="objednavky", dod=S.module==="dodaci", lab=S.module==="stitky", inApp=!!(API&&S.name&&!S.newPin);
   document.body.classList.toggle("wide",lab&&inApp);
   if(ord||dod)document.body.dataset.area="OBCHOD";
-  $("#appTitle").lastChild.textContent=inv?"Inventura":ord?"Objednávky":dod?"Dodací listy":lab?"Štítky":"BLR App";
+  $("#appTitle").lastChild.textContent=inv?"Inventura":ord?"Objednávky":dod?"Dodací listy":lab?"Štítky":"Tukan";
   $("#appLogo").hidden=inv||ord||dod||lab;
   $("#homeBtn").hidden=!((inv||ord||dod||lab)&&inApp);
   $("#areas").hidden=!(inv&&inApp);
@@ -1201,7 +1201,7 @@ function viewDlPrint(){
       <div class="sig"><div class="sigimg">${S.raz?`<img class="raz" src="${S.raz}" alt="razítko a podpis">`:""}</div><div>Vydal: ${esc(celeJmeno(r[3]))}</div></div>
       <div class="sig"><div class="sigimg">${S.sigSvg?`<img alt="podpis" style="display:block;width:100%;height:auto;max-width:100%" src="${sigImg(S.sigSvg)}">`:""}</div><div>Zboží převzal: ${esc(r[12]||"")}</div></div>
     </div>
-    <div class="foot">Dodací list ${esc(c)} · ${esc(FIRMA.n)} · vystaveno v BLR App</div>
+    <div class="foot">Dodací list ${esc(c)} · ${esc(FIRMA.n)} · vystaveno v aplikaci Tukan</div>
   </section>`;
 }
 

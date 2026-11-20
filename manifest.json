@@ -1,7 +1,7 @@
 {
-  "name": "BLR App",
-  "short_name": "BLR App",
-  "description": "BLR App – Barvy Laky Růžička: inventura, objednávky, dodací listy",
+  "name": "Tukan",
+  "short_name": "Tukan",
+  "description": "Tukan – aplikace Barvy Laky Růžička: objednávky, dodací listy, štítky, inventura",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f3f4f2",
