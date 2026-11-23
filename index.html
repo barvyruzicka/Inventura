@@ -769,7 +769,7 @@ function orderCard(key){
   const free=key==="__free__", r=free?null:itemRow(key);
   let open=free?[]:S.ord.rows.filter(x=>x[4]===key&&x[10]==="Zapsáno");
   const fx=S.ofix&&S.ofix!=="*"?S.ofix:"";
-  if(S.osupFor!==key){S.osupFor=key;S.osup=fx||(free?null:(S.ord.map[key]||supFromCezar(itemRow(key))||null));S.ounit="ks";S.ochange=false}
+  if(S.osupFor!==key){S.osupFor=key;if(S.onewVar!==key)S.onewVar=null;S.osup=fx||(free?null:(S.ord.map[key]||supFromCezar(itemRow(key))||null));S.ounit="ks";S.ochange=false}
   const showSup=!fx||S.ochange||S.osup!==fx;
   const dup=ordDup(key);
   if(dup&&S.odupFor!==dup[0]){S.odupFor=dup[0];S.ounit=dup[8]==="bal"?"bal":"ks"}
@@ -778,7 +778,8 @@ function orderCard(key){
   return `<section class="panel flash" id="card">
     ${free?`<h2>Zboží bez kódu</h2><input type="text" id="ofree" placeholder="Název zboží (např. S2000 0110 7 l)" aria-label="Název zboží">`
       :`<div><p class="item-name">${esc(r?r[0]:key)}</p><div class="code">${esc(key)}${r&&r[1]?" · EAN "+esc(r[1]):""}${r?esc(catInfo(r,true)):" · v Cézaru 0"}${r&&r[6]?" · dod. "+esc(r[6]):""}</div></div>`}
-    ${dup?`<div class="warnbox">Toto zboží už je v objednávce <b>${esc(S.osup)}</b>: ${fmt(dup[7])} ${dup[8]==="bal"?"bal.":"ks"} (zapsal/a ${esc(dup[2])}, ${dmy(dup[1])}). Podruhé ho zapsat nejde – můžete jen změnit počet.</div>`:""}
+    ${dup?`<div class="warnbox">Toto zboží už je v objednávce <b>${esc(S.osup)}</b>: ${fmt(dup[7])} ${dup[8]==="bal"?"bal.":"ks"} (zapsal/a ${esc(dup[2])}, ${dmy(dup[1])}). Můžete změnit počet, nebo <button type="button" class="linkbtn" id="onewvar">přidat další variantu</button> (jiná zrnitost, velikost, odstín – napíšete do poznámky).</div>`:""}
+    ${S.onewVar===key?`<div class="warnbox">Další varianta stejného zboží – do poznámky napište <b>zrnitost / velikost / odstín</b>.</div>`:""}
     ${(open=open.filter(o=>!dup||o[0]!==dup[0])).length?`<div class="warnbox">Už je v objednávkách: ${open.map(o=>`<b>${esc(o[2])}</b> ${fmt(o[7])} ${esc(o[8])} · ${esc(o[3])} · ${esc(o[10]).toLowerCase()} ${dmy(o[10]==="Objednáno"?o[11]:o[1])}`).join("; ")}</div>`:""}
     ${showSup?`<div><h2 style="margin-bottom:8px">Dodavatel${!free&&S.ord.map[key]?` <span class="hint" style="text-transform:none;letter-spacing:0">(naposledy ${esc(S.ord.map[key])})</span>`:""}</h2>
       <div class="supgrid">${sups.map(x=>`<button type="button" class="chip" data-osup="${esc(x[0])}" aria-pressed="${S.osup===x[0]}">${esc(x[0])}<small>${esc(x[1])}</small></button>`).join("")}</div></div>`
@@ -791,7 +792,7 @@ function orderCard(key){
       ${S.cam?`<button class="btn" type="button" id="resume">Zrušit a skenovat dál</button>`:""}
     </form></section>`;
 }
-function ordDup(key){return key&&key!=="__free__"&&S.osup?S.ord.rows.find(x=>x[4]===key&&x[3]===S.osup&&x[10]==="Zapsáno"):null}
+function ordDup(key){return S.onewVar!==key&&key&&key!=="__free__"&&S.osup?S.ord.rows.find(x=>x[4]===key&&x[3]===S.osup&&x[10]==="Zapsáno"):null}
 async function submitOrder(){
   const key=S.current, free=key==="__free__", r=free?null:itemRow(key);
   const nm=free?($("#ofree").value.trim()):(r?r[0]:key);
@@ -804,11 +805,12 @@ async function submitOrder(){
   if(dup){const note=$("#onote").value.trim();S.current=null;S.osupFor=null;S.query="";S.resetCode=true;
     await ordSet([dup[0]],{qty:q,unit:S.ounit,note},`Počet změněn: ${nm} · ${fmt(q)} ${S.ounit==="bal"?"bal.":"ks"}`);
     S.osaving=false;afterSave();return}
+  if(S.onewVar===key&&!$("#onote").value.trim()){toast("Napište do poznámky zrnitost / velikost");$("#onote").focus();S.osaving=false;if(btn){btn.disabled=false;btn.textContent="Zapsat do objednávky"}return}
   const e={id:uid(),dod:S.osup,cis:free?"":key,nm,ean:free?(S.freeEan||""):(r&&r[1]||""),qty:q,unit:S.ounit,note:$("#onote").value.trim()};
   try{await ordPost({a:"ord_add",entries:[e]});
     S.ord.rows.push([e.id,Date.now(),S.name,e.dod,e.cis,e.nm,e.ean,q,e.unit,e.note,"Zapsáno",Date.now(),S.name]);
     if(e.cis)S.ord.map[e.cis]=e.dod;
-    toast(`Zapsáno: ${nm} · ${e.dod}`); S.freeEan=""; S.osupFor=null; S.current=null; S.query=""; S.resetCode=true; afterSave(); loadOrders();
+    toast(`Zapsáno: ${nm} · ${e.dod}`); S.freeEan=""; S.onewVar=null; S.osupFor=null; S.current=null; S.query=""; S.resetCode=true; afterSave(); loadOrders();
   }catch(err){if(err.message!=="pin")toast("Nepodařilo se zapsat. Zkontrolujte připojení a zkuste znovu.");if(btn){btn.disabled=false;btn.textContent="Zapsat do objednávky"}}
   finally{S.osaving=false}
 }
@@ -852,13 +854,14 @@ function ordRow(r){
       ${r[10]!=="Zapsáno"?`<button class="btn" type="button" data-oact="Zapsáno" data-id="${id}">Vrátit na Zapsáno</button>`:""}
       <button class="btn danger" type="button" data-oact="Zrušeno" data-id="${id}">${S.oconf==="del|"+r[0]?"Opravdu zrušit?":"Zrušit"}</button>
     </div>
-    <form class="scanrow" id="oqForm" style="padding-bottom:10px"><input type="text" id="oeq" inputmode="decimal" value="${fmt(r[7])}" aria-label="Nový počet"><button class="btn" type="submit">Změnit počet</button></form>`;
+    <form class="scanrow" id="oqForm" style="padding-bottom:6px"><input type="text" id="oeq" inputmode="decimal" value="${fmt(r[7])}" aria-label="Nový počet"><button class="btn" type="submit">Změnit počet</button></form>
+    <form class="scanrow" id="onForm" style="padding-bottom:10px"><input type="text" id="oen" value="${esc(r[9]||"")}" placeholder="Poznámka (zrnitost, velikost, odstín…)" aria-label="Poznámka" autocomplete="off"><button class="btn" type="submit">Uložit poznámku</button></form>`;
   }
   return h;
 }
 async function ordSet(ids,patch,msg){
   try{await ordPost(Object.assign({a:"ord_set",ids},patch));
-    S.ord.rows.forEach(r=>{if(ids.includes(r[0])){if(patch.stav)r[10]=patch.stav;if(patch.qty)r[7]=patch.qty;r[11]=Date.now();r[12]=S.name}});
+    S.ord.rows.forEach(r=>{if(ids.includes(r[0])){if(patch.stav)r[10]=patch.stav;if(patch.qty)r[7]=patch.qty;if(patch.note!=null)r[9]=patch.note;r[11]=Date.now();r[12]=S.name}});
     S.ord.rows=S.ord.rows.filter(r=>r[10]!=="Zrušeno");
     S.osel=null;S.oconf=null;toast(msg||"Uloženo");render();loadOrders();
   }catch(err){if(err.message!=="pin")toast("Nepodařilo se uložit. Zkontrolujte připojení.")}
@@ -1783,6 +1786,7 @@ document.addEventListener("click",async e=>{
     case "delBtn":{const m=myQ(S.current);if(!m)break;if(S.confirmDel!==S.current){S.confirmDel=S.current;b.textContent="Opravdu smazat? Klepněte znovu";setTimeout(()=>{if(S.confirmDel){S.confirmDel=null;const x=$("#delBtn");if(x)x.textContent="Smazat můj počet ("+fmt(myQ(S.current))+")"}},4000);break}
       S.confirmDel=null;setQ(S.current,0);toast("Smazáno: "+itemName(S.current));afterSave();break}
     case "exportBtn":exportXlsx();break;
+    case "onewvar":S.onewVar=S.current;S.odupFor=null;S.ounit="ks";render();requestAnimationFrame(()=>{const q=$("#qty");if(q)q.value="1";const n=$("#onote");if(n){n.value="";n.focus()}});break;
     case "ochange":S.ochange=true;render();break;
     case "ofixChange":if(S.cam)camStop();S.ofix="";S.current=null;S.choices=null;S.results=null;S.notFound=null;S.query="";render();window.scrollTo(0,0);break;
     case "dodbChange":if(S.cam)camStop();{const d=dlDraft();d.odb=null;dlSaveDraft()}S.current=null;S.choices=S.results=S.notFound=null;S.dstep="items";render();window.scrollTo(0,0);break;
@@ -1816,6 +1820,7 @@ document.addEventListener("submit",e=>{
   if(f.id==="codeForm"){const v=fixScanner($("#code").value);handleCode(v,{fromScan:/^\d{8,14}$/.test(v)})}
   else if(f.id==="ordForm")submitOrder();
   else if(f.id==="dlForm")dlSubmitItem();
+  else if(f.id==="onForm"){ordSet([S.osel],{note:$("#oen").value.trim()},"Poznámka uložena")}
   else if(f.id==="oqForm"){const v=parseQ($("#oeq").value);if(isNaN(v)||v<=0){toast("Zadejte počet");return}ordSet([S.osel],{qty:v},"Počet změněn")}
   else if(f.id==="qtyForm"){const v=parseQ($("#qty").value);if(isNaN(v)||v===0){toast("Zadejte počet");return}addQ(S.current,v);afterSave()}
   else if(f.id==="pinForm")doLogin(S.loginName,$("#pinIn").value);
