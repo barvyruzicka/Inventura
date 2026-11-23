@@ -883,7 +883,8 @@ async function supAction(act,sup,b){
   }
   if(act==="csv"){
     const ok=g.filter(r=>r[4]), bal=ok.filter(r=>r[8]==="bal"), skip=g.length-ok.length;
-    const lines=ok.map(r=>r[4]+";"+String(Math.round(r[7]*1000)/1000));
+    /* číslo zboží;množství;poznámka (zrnitost, velikost…) – v Cézaru import 04 „Objednávky a dodáky - import (Tukan)“ (UTF-8, 3 údaje) */
+    const lines=ok.map(r=>r[4]+";"+String(Math.round(r[7]*1000)/1000)+";"+String(r[9]||"").replace(/[;\r\n\t"]+/g," ").trim().slice(0,200));
     const d=new Date(),p2=n=>String(n).padStart(2,"0"),name=`Objednavka-${sup.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9]+/g,"_")}-${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}.csv`;
     const blob=new Blob([lines.join("\r\n")+"\r\n"],{type:"text/csv"});
     if(window.showSaveFilePicker&&!/Android|iPhone|iPad/i.test(navigator.userAgent)){
@@ -1123,7 +1124,7 @@ async function dlCsv(items,label){
   if(!ok.length){toast("Žádná položka s číslem zboží");return}
   const d=new Date(),p2=n=>String(n).padStart(2,"0");
   const name=`DL-${fileSafe(label)}-${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}.csv`;
-  if(await saveCsvFile(name,ok.map(x=>x[7]+";"+String(Math.round(x[10]*1000)/1000)),"blr-dl-csv"))
+  if(await saveCsvFile(name,ok.map(x=>x[7]+";"+String(Math.round(x[10]*1000)/1000)+";"+String(x[11]||"").replace(/[;\r\n\t"]+/g," ").trim().slice(0,200)),"blr-dl-csv"))
     toast(`${ok.length} řádků uloženo`+(skip?` · ${skip} bez kódu zadejte ručně`:""));
 }
 function dlAction(act,c){
