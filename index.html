@@ -134,6 +134,8 @@ h1 .logo{width:30px;height:30px;border-radius:6px;background:#fff;flex:none}
 .supgrid .chip{font-size:15px;padding:10px 12px}
 .supgrid .chip small{font-size:11px;color:inherit;opacity:.7;margin-left:4px}
 .ohead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.ohbtn{background:none;border:0;color:inherit;font:inherit;width:100%;cursor:pointer;padding:2px 0;text-align:left}
+.ohbtn .chev{font:700 20px/1 var(--f-ui);color:var(--muted);width:18px;text-align:center}
 .ohead h3{margin:0;font:700 20px/1.1 var(--f-label);letter-spacing:.04em;text-transform:uppercase}
 .oacts{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 10px}
 .oacts .btn{padding:10px 12px;font-size:14px}
@@ -170,8 +172,8 @@ h1 .logo{width:30px;height:30px;border-radius:6px;background:#fff;flex:none}
 .dls .sig{display:flex;flex-direction:column}
 .dls .sigimg{height:34mm;display:flex;align-items:flex-end;justify-content:center;border-bottom:1px solid #111}
 .dls .sigimg img{max-height:33mm;max-width:100%}
-/* razítko ve skutečné velikosti: šířka cca 56 mm (obrázek 700 × 310 px) – velikost razítka mění height */
-.dls .sigimg img.raz{height:25mm;max-height:none;width:auto;max-width:100%}
+/* razítko ve skutečné velikosti: šířka cca 72 mm (obrázek 700 × 310 px; skutečné razítko změřeno 23. 11.) – na mobilu RAZ_MM_H */
+.dls .sigimg img.raz{height:32mm;max-height:none;width:auto;max-width:100%}
 .dls .sigimg svg{width:100%;height:30mm}
 .dls .foot{font-size:10px;color:#666;text-align:center}
 .dls.a4{font-size:13.5px}.dls.a4 .boxes{grid-template-columns:1fr 1fr!important}.dls.a4 .doc{text-align:right!important}.dls.a4 .logo{width:235px}
@@ -274,7 +276,7 @@ let KEY=URLP.get("k")||store.get("k","");
 if(URLP.get("api")){store.set("api",API);store.set("k",KEY)}
 
 const S={
-  module:modFromHash(), dview:"new", dstep:"items", dfilt:"wait", dsel:null, dconf:null, dq:"", dprint:null, dl:{rows:[],use:{},loaded:false}, odb:store.get("odb",null)||{rows:[],loaded:false,t:0}, oview:"add", ofilt:"zap", osel:null, oconf:null, ord:{sup:[],rows:[],map:{},loaded:false}, osup:null, ounit:"ks", ofix:"", ochange:false, view:"scan", area:store.get("area","OBCHOD"), name:(store.get("user",null)||{}).name||"", pin:(store.get("user",null)||{}).pin||"", fast:store.get("fast",false),
+  module:modFromHash(), dview:"new", dstep:"items", dfilt:"wait", dsel:null, dconf:null, dq:"", dprint:null, dl:{rows:[],use:{},loaded:false}, odb:store.get("odb",null)||{rows:[],loaded:false,t:0}, oview:"add", ofilt:"zap", oopen:new Set(), dopen:new Set(), dlq:"", osel:null, oconf:null, ord:{sup:[],rows:[],map:{},loaded:false}, osup:null, ounit:"ks", ofix:"", ochange:false, view:"scan", area:store.get("area","OBCHOD"), name:(store.get("user",null)||{}).name||"", pin:(store.get("user",null)||{}).pin||"", fast:store.get("fast",false),
   people:null, loginName:"", loginMode:"pick", loginMsg:"", newPin:null,
   dev:store.get("dev",null),
   conn:API?"connecting":"none", lastOk:0,
@@ -762,7 +764,7 @@ function viewOrdAdd(){
   return h;
 }
 function ordLi(i){const r=S.catalog[i];const open=S.ord.rows.filter(x=>x[4]===r[2]&&x[10]==="Zapsáno");
-  return `<button type="button" class="li" data-pick="${esc(r[2])}"><span class="n">${esc(r[0])}</span><span class="q">${fmt(+r[3]||0)}</span><span class="s">${esc(r[2])}${r[1]?" · "+esc(r[1]):""}${open.length?` · <span class="stag ${OST[open[0][10]]}">${esc(open[0][10])}</span>`:""}</span></button>`}
+  return `<button type="button" class="li" data-pick="${esc(r[2])}"><span class="n">${esc(r[0])}</span><span class="q">${fmt(+r[3]||0)}</span><span class="s">${esc(r[2])}${r[1]?" · "+esc(r[1]):""}${cenaTxt(r)}${open.length?` · <span class="stag ${OST[open[0][10]]}">${esc(open[0][10])}</span>`:""}</span></button>`}
 function orderCard(key){
   const free=key==="__free__", r=free?null:itemRow(key);
   let open=free?[]:S.ord.rows.filter(x=>x[4]===key&&x[10]==="Zapsáno");
@@ -824,8 +826,10 @@ function viewOrdList(){
   for(const n of names){
     const g=rows.filter(r=>r[3]===n).sort((a,b)=>a[1]-b[1]); if(!g.length)continue; any=true;
     const si=supInfo(n), how=si[1];
-    h+=`<section class="panel"><div class="ohead"><h3>${esc(n)}</h3><span class="stag">${esc(how)}</span></div>
-      ${si[3]?`<div class="hint">${esc(si[3])}</div>`:""}
+    const op=S.oopen.has(n);
+    h+=`<section class="panel"><button type="button" class="ohead ohbtn" data-otog="${esc(n)}" aria-expanded="${op}"><h3>${esc(n)}</h3><span class="row" style="gap:6px"><span class="stag">${g.length} pol.</span><span class="stag">${esc(how)}</span><span class="chev">${op?"▾":"▸"}</span></span></button>`;
+    if(!op){h+=`</section>`;continue}
+    h+=`${si[3]?`<div class="hint">${esc(si[3])}</div>`:""}
       <div class="oacts">
         ${S.ofilt==="zap"?(how==="Cézar"?`<button class="btn" type="button" data-supact="csv" data-sup="${esc(n)}">Stáhnout CSV pro Cézar</button>`:`<button class="btn" type="button" data-supact="copy" data-sup="${esc(n)}">Kopírovat seznam</button>`)
           +(si[2]?`<a class="btn" href="${esc(si[2])}" target="_blank" rel="noopener">Otevřít B2B ↗</a>`:"")
@@ -910,8 +914,9 @@ function dlOpenCount(){return new Set(S.dl.rows.filter(r=>r[14]==="Vystaveno"&&t
 let dlBusy=false,odbBusy=false;
 async function loadDl(){
   if(!API||!S.name||dlBusy)return; dlBusy=true;
-  try{const r=await apiGet({a:"dl"});
-    if(r.ok){S.dl={rows:r.rows||[],use:r.use||{},admins:r.admins||[],cz:r.cz||null,loaded:true};connOk();
+  const all=S.dfilt==="vse"&&S.dview==="list"?1:0;
+  try{const r=await apiGet({a:"dl",all});
+    if(r.ok){S.dl={rows:r.rows||[],use:r.use||{},admins:r.admins||[],cz:r.cz||null,loaded:true,all:!!all};connOk();
       if(S.module==="dodaci"||S.module==="home"){const a=document.activeElement;if(!(a&&a.tagName==="INPUT"&&a.closest("#main"))&&!S.sigDrawing)render()}}
     else connFail(r);
   }catch(e){connFail()}finally{dlBusy=false}
@@ -978,8 +983,10 @@ function viewDlNew(){
     :`<p class="hint" style="margin:0">Naskenujte nebo vyhledejte zboží, které si firma odnáší, a zadejte počet.</p>`}</section>`;
   return h;
 }
+/* cena z Cézaru (PC-A s DPH) do řádku výsledku hledání */
+const cenaTxt=r=>r&&r[5]!==""&&r[5]!=null&&+r[5]>0?` · <b style="color:var(--fg)">${esc(fmtKc(r[5]))}</b>`:"";
 function dlLi(i){const r=S.catalog[i];const x=dlDraft().items.find(y=>y.cis===r[2]);
-  return `<button type="button" class="li" data-pick="${esc(r[2])}"><span class="n">${esc(r[0])}</span><span class="q">${x?fmt(x.qty):""}</span><span class="s">${esc(r[2])}${r[1]?" · "+esc(r[1]):""}${x?" · na dodáku":""}</span></button>`}
+  return `<button type="button" class="li" data-pick="${esc(r[2])}"><span class="n">${esc(r[0])}</span><span class="q">${x?fmt(x.qty):""}</span><span class="s">${esc(r[2])}${r[1]?" · "+esc(r[1]):""}${cenaTxt(r)}${x?" · na dodáku":""}</span></button>`}
 function dlCard(key){
   const free=key==="__free__"||key.startsWith("#"), r=free?null:itemRow(key), d=dlDraft();
   const ex=key.startsWith("#")?d.items[+key.slice(1)]:d.items.find(y=>y.cis===key&&!free);
@@ -1044,21 +1051,25 @@ function dlCzInfo(){const z=S.dl.cz;if(!z)return "";
 function viewDlList(){
   const F={wait:dlWait,cz:r=>dlInCz(r),vse:()=>true};
   if(!F[S.dfilt])S.dfilt="wait";
-  const rows=S.dl.rows.filter(F[S.dfilt]);
+  let rows=S.dl.rows.filter(F[S.dfilt]);
+  const dq=S.dfilt==="vse"?norm(S.dlq):"";
+  if(dq){const ws=dq.split(/\s+/);const hit=new Set(rows.filter(r=>{const t=norm(r[1]+" "+r[5]+" "+r[6]+" "+r[12]+" "+r[13]+" "+r[3]);return ws.every(w=>t.includes(w))}).map(r=>r[1]));rows=rows.filter(r=>hit.has(r[1]))}
   const nW=dlOpenCount(), nC=new Set(S.dl.rows.filter(dlInCz).map(r=>r[1])).size;
   const bez=[...new Set(S.dl.rows.filter(r=>r[17]==="bez IČ").map(r=>r[1]))];
   let h=`<section class="panel"><div class="chips">${[["wait","Čeká na Cézar",nW],["cz","V Cézaru",nC],["vse","Vše",null]].map(([k,l,c])=>`<button type="button" class="chip" data-dfilt="${k}" aria-pressed="${S.dfilt===k}">${l}${c!=null?` (${c})`:""}</button>`).join("")}</div>
     ${dlCzInfo()}
     ${bez.length?`<div class="warnbox">Bez IČ odběratele – do Cézaru je zapište ručně (CSV u dodáku): <b>${bez.map(esc).join(", ")}</b></div>`:""}
-    ${S.dfilt!=="wait"?`<p class="hint" style="margin:0">Dodáky předané do Cézaru se tu ukazují 90 dní, pak zůstanou jen v tabulce.</p>`:""}</section>`;
+    ${S.dfilt==="cz"?`<p class="hint" style="margin:0">Dodáky předané do Cézaru za posledních 90 dní. Starší najdete pod „Vše“.</p>`:""}
+    ${S.dfilt==="vse"?`<input type="search" id="dlq" placeholder="Hledat: číslo DL, firma, kdo převzal…" value="${esc(S.dlq)}" aria-label="Hledat dodák" autocomplete="off"><p class="hint" style="margin:0">${S.dl.all?"Celá historie dodáků.":"Načítám celou historii…"}</p>`:""}</section>`;
   if(!S.dl.loaded)return h+`<section class="panel"><p class="hint" style="margin:0">Načítám dodací listy…</p></section>`;
   const byOdb=new Map();dlGroups(rows).forEach(g=>{const k=g[0][4];if(!byOdb.has(k))byOdb.set(k,[]);byOdb.get(k).push(g)});
   const keys=[...byOdb.keys()].sort((a,b)=>(byOdb.get(a)[0][0][5]||"").localeCompare(byOdb.get(b)[0][0][5]||"","cs"));
   if(!keys.length)return h+`<section class="panel"><p class="hint" style="margin:0">${S.dfilt==="wait"?"Všechny dodáky jsou v Cézaru.":"Žádné dodací listy."}</p></section>`;
   for(const k of keys){
     const gs=byOdb.get(k).sort((a,b)=>b[0][2]-a[0][2]), nm=gs[0][0][5]||k, nItems=gs.reduce((s,g)=>s+g.length,0);
-    h+=`<section class="panel"><div class="ohead"><h3>${esc(nm)}</h3><span class="stag">${gs.length} DL · ${nItems} pol.</span></div>
-      <div class="list">${gs.map(dlRowHtml).join("")}</div></section>`;
+    const op=!!dq||S.dopen.has(k)||keys.length===1;
+    h+=`<section class="panel"><button type="button" class="ohead ohbtn" data-dtog="${esc(k)}" aria-expanded="${op}"><h3>${esc(nm)}</h3><span class="row" style="gap:6px"><span class="stag">${gs.length} DL · ${nItems} pol.</span><span class="chev">${op?"▾":"▸"}</span></span></button>
+      ${op?`<div class="list">${gs.map(dlRowHtml).join("")}</div>`:""}</section>`;
   }
   return h;
 }
@@ -1150,28 +1161,79 @@ function saveBlob(blob,name,title){
   if(mobilShare(f,title))return;
   const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);
 }
+/* Dodací list pro tisk z mobilu – kreslí se přímo do obrázku A4 (200 dpi) se skutečnými rozměry v mm.
+   Nahrazuje html2canvas (na starším Androidu rozhazoval mezery v textu). Razítko: RAZ_MM_H mm na výšku. */
+const RAZ_MM_H=32;
+function dlLoadImg(src){return new Promise(r=>{if(!src)return r(null);const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src=src})}
+async function dlCanvasPages(c){
+  const g=S.dl.rows.filter(r=>r[1]===c);if(!g.length)return [];
+  const r=g[0],o=odbOf(r[4])||[r[4],r[5],r[6],"","","",""];
+  try{await Promise.all(['400 20px "Barlow"','700 20px "Barlow"','700 20px "Barlow Condensed"'].map(f=>document.fonts.load(f)))}catch(e){}
+  const [logo,raz,sig]=await Promise.all([dlLoadImg(LOGO_DL),dlLoadImg(S.raz||""),dlLoadImg(S.sigSvg?sigImg(S.sigSvg):"")]);
+  const K=200/25.4,W=Math.round(210*K),H=Math.round(297*K),M=12,R=198;
+  const pages=[];let cv,x,y;
+  const font=(pt,w,cond)=>{x.font=`${w||400} ${(pt*0.3528*K).toFixed(1)}px ${cond?'"Barlow Condensed","Arial Narrow"':'"Barlow"'},Arial,sans-serif`};
+  const txt=(s,X,Y,al,col)=>{x.fillStyle=col||"#111";x.textAlign=al||"left";x.fillText(String(s),X*K,Y*K)};
+  const tw=s=>x.measureText(String(s)).width/K;
+  const line=(x1,y1,x2,y2,w,col)=>{x.strokeStyle=col||"#111";x.lineWidth=(w||0.25)*K;x.beginPath();x.moveTo(x1*K,y1*K);x.lineTo(x2*K,y2*K);x.stroke()};
+  const rect=(X,Y,w,h)=>{x.strokeStyle="#999";x.lineWidth=0.25*K;x.beginPath();if(x.roundRect)x.roundRect(X*K,Y*K,w*K,h*K,1.2*K);else x.rect(X*K,Y*K,w*K,h*K);x.stroke()};
+  const wrap=(s,maxW)=>{const out=[];let cur="";String(s||"").split(/\s+/).filter(Boolean).forEach(wd=>{const t=cur?cur+" "+wd:wd;if(tw(t)<=maxW||!cur)cur=t;else{out.push(cur);cur=wd}});if(cur)out.push(cur);return out.length?out:[""]};
+  const newPage=()=>{cv=document.createElement("canvas");cv.width=W;cv.height=H;x=cv.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,W,H);x.textBaseline="alphabetic";pages.push(cv)};
+  newPage();
+  /* hlavička */
+  let lh=0;if(logo){const lw=62;lh=lw*logo.naturalHeight/logo.naturalWidth;x.drawImage(logo,M*K,M*K,lw*K,lh*K)}
+  font(20,700,1);txt("DODACÍ LIST",R,M+6.5,"right");
+  font(15,700,1);txt(c,R,M+13,"right");
+  font(10);txt("Datum: "+new Date(r[2]).toLocaleDateString("cs-CZ"),R,M+18.5,"right");
+  y=Math.max(M+lh,M+20)+5;
+  /* boxy dodavatel / odběratel */
+  const bw=(186-6)/2,pad=3;
+  const adr=[o[4],[o[5],o[3]].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+  const boxes=[["DODAVATEL",FIRMA.n,[FIRMA.a,`IČO ${FIRMA.ico} · DIČ ${FIRMA.dic}`,`tel. ${FIRMA.t} · ${FIRMA.w}`]],
+    ["ODBĚRATEL",o[1],[adr,[o[2]?"IČO "+o[2]:"",o[6]?"DIČ "+o[6]:""].filter(Boolean).join(" · ")].filter(Boolean)]];
+  font(10);const bl=boxes.map(b=>{font(10.5,700);const n=wrap(b[1],bw-2*pad);font(10);return {cap:b[0],name:n,lines:b[2].flatMap(l=>wrap(l,bw-2*pad))}});
+  const bh=pad+3+bl.reduce((m,b)=>Math.max(m,b.name.length*4.6+b.lines.length*4.4),0)+pad;
+  bl.forEach((b,i)=>{const bx=M+i*(bw+6);rect(bx,y,bw,bh);let yy=y+pad+2.6;
+    font(7.5);txt(b.cap,bx+pad,yy,"left","#555");yy+=4.8;
+    font(10.5,700);b.name.forEach(l=>{txt(l,bx+pad,yy);yy+=4.6});
+    font(10);b.lines.forEach(l=>{txt(l,bx+pad,yy);yy+=4.4})});
+  y+=bh+7;
+  /* tabulka */
+  const cN=M+7,cName=M+37,cQ=R-9,cJ=R-7.5,nameW=cQ-16-cName;
+  const head=()=>{font(7.5,700);txt("#",M,y);txt("ČÍSLO ZBOŽÍ",cN,y);txt("NÁZEV ZBOŽÍ",cName,y);txt("MNOŽSTVÍ",cQ,y,"right");txt("MJ",cJ,y);y+=1.6;line(M,y,R,y,0.45);y+=4.6};
+  head();
+  const jed=it=>{const ir=it[7]?itemRow(it[7]):null;return ir&&ir[4]?ir[4]:"ks"};
+  const sigBlock=48;
+  g.forEach((it,i)=>{
+    font(10);const nl=wrap(it[8],nameW);font(8.5);const notel=it[11]?wrap(it[11],nameW):[];
+    const rh=nl.length*4.4+notel.length*3.8+1.6;
+    if(y+rh>H/K-M-8){newPage();y=M+4;head()}
+    font(10);txt(i+1,M,y);txt(it[7]||"",cN,y);nl.forEach((l,j)=>txt(l,cName,y+j*4.4));
+    font(10,700);txt(fmt(it[10]),cQ,y,"right");font(10);txt(jed(it),cJ,y);
+    font(8.5);notel.forEach((l,j)=>txt(l,cName,y+nl.length*4.4+j*3.8-0.6,"left","#444"));
+    y+=rh-1.6;line(M,y,R,y,0.2,"#bbb");y+=4.8});
+  if(r[13]){font(10);const pl=wrap("Poznámka: "+r[13],186);if(y+pl.length*4.4>H/K-M-sigBlock){newPage();y=M+4}pl.forEach(l=>{txt(l,M,y);y+=4.4})}
+  /* podpisy */
+  if(y+sigBlock>H/K-M){newPage();y=M+4}
+  const sy=y+2,sh=34,cw=88;
+  if(raz){const rh=RAZ_MM_H,rw=Math.min(cw,rh*raz.naturalWidth/raz.naturalHeight),rh2=rw*raz.naturalHeight/raz.naturalWidth;x.drawImage(raz,(M+(cw-rw)/2)*K,(sy+sh-rh2-0.5)*K,rw*K,rh2*K)}
+  if(sig){const sw=cw,shh=sw*340/1000;x.drawImage(sig,(R-cw)*K,(sy+sh-shh-0.5)*K,sw*K,shh*K)}
+  line(M,sy+sh,M+cw,sy+sh,0.3);line(R-cw,sy+sh,R,sy+sh,0.3);
+  font(10);txt("Vydal: "+celeJmeno(r[3]),M,sy+sh+4.6);txt("Zboží převzal: "+(r[12]||""),R-cw,sy+sh+4.6);
+  font(7.5);txt(`Dodací list ${c} · ${FIRMA.n} · vystaveno v aplikaci Tukan`,105,sy+sh+11,"center","#666");
+  return pages;
+}
 let pdfBusy=null;
 function dlPdfPrepare(c){
   if(S.pdfFor===c&&(S.pdfFile||pdfBusy))return;
   if((S.sigSvg===null&&!S.sigErr)||S.razLoad||S.sigFor!==c)return;
-  const doc=document.querySelector(".printdoc");if(!doc)return;
   S.pdfFor=c;S.pdfFile=null;S.pdfImgs=null;
   pdfBusy=(async()=>{
     try{
-      await Promise.all([loadLib("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"),loadLib("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js")]);
-      await new Promise(r=>setTimeout(r,300));
-      const src=document.querySelector(".printdoc");if(!src||S.dprint!==c)return;
-      const cl=src.cloneNode(true);cl.classList.add("a4");cl.style.cssText="position:fixed;left:-10000px;top:0;width:794px;padding:38px 45px;border-radius:0;box-shadow:none";
-      document.body.appendChild(cl);
-      await Promise.all([...cl.querySelectorAll("img")].map(i=>i.complete?0:new Promise(r=>{i.onload=i.onerror=r})));
-      const cv=await html2canvas(cl,{scale:2,backgroundColor:"#ffffff",logging:false});cl.remove();
-      const pdf=new window.jspdf.jsPDF({unit:"mm",format:"a4",compress:true});
-      const imgs=[],pw=210,ph=297,pxPerPage=Math.floor(cv.width*ph/pw);
-      for(let y=0,i=0;y<cv.height;y+=pxPerPage,i++){
-        const h=Math.min(pxPerPage,cv.height-y),part=document.createElement("canvas");part.width=cv.width;part.height=h;
-        const x=part.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,part.width,h);x.drawImage(cv,0,y,cv.width,h,0,0,cv.width,h);
-        const du=part.toDataURL("image/jpeg",0.92);imgs.push(du);if(i)pdf.addPage();pdf.addImage(du,"JPEG",0,0,pw,h*pw/cv.width);
-      }
+      await loadLib("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+      const pages=await dlCanvasPages(c);if(!pages.length||S.pdfFor!==c)return;
+      const pdf=new window.jspdf.jsPDF({unit:"mm",format:"a4",compress:true}),imgs=[];
+      pages.forEach((cv,i)=>{const du=cv.toDataURL("image/jpeg",0.92);imgs.push(du);if(i)pdf.addPage();pdf.addImage(du,"JPEG",0,0,210,297)});
       if(S.pdfFor!==c)return;
       S.pdfFile=new File([pdf.output("blob")],`Dodaci-list-${c}.pdf`,{type:"application/pdf"});S.pdfImgs=imgs;
     }catch(e){S.pdfFor=null;S.pdfErr=true;toast("PDF se nepodařilo připravit – zkontrolujte internet")}
@@ -1681,13 +1743,15 @@ document.addEventListener("click",async e=>{
   if(b.dataset.oview){if(S.cam&&b.dataset.oview!=="add")camStop();S.oview=b.dataset.oview;S.osel=null;S.oconf=null;render();window.scrollTo(0,0);return}
   if(b.dataset.osup){S.osup=b.dataset.osup;render();return}
   if(b.dataset.ounit){S.ounit=b.dataset.ounit;render();return}
+  if(b.dataset.otog!=null){const n=b.dataset.otog;S.oopen.has(n)?S.oopen.delete(n):S.oopen.add(n);S.osel=null;S.oconf=null;render();return}
+  if(b.dataset.dtog!=null){const n=b.dataset.dtog;S.dopen.has(n)?S.dopen.delete(n):S.dopen.add(n);S.dsel=null;S.dconf=null;render();return}
   if(b.dataset.ofilt){S.ofilt=b.dataset.ofilt;S.osel=null;S.oconf=null;render();return}
   if(b.dataset.oid){S.osel=S.osel===b.dataset.oid?null:b.dataset.oid;S.oconf=null;render();return}
   if(b.dataset.oact){ordAction(b.dataset.oact,b.dataset.id,b);return}
   if(b.dataset.supact){supAction(b.dataset.supact,b.dataset.sup,b);return}
   if(b.dataset.dodb){const d=dlDraft(),o=odbOf(b.dataset.dodb);d.odb=b.dataset.dodb;d.odbN=o?o[1]:"";dlSaveDraft();S.dq="";S.current=null;render();window.scrollTo(0,0);return}
   if(b.dataset.dview){if(S.cam)camStop();S.dview=b.dataset.dview;S.dprint=null;S.dsel=null;S.dconf=null;if(S.dview==="new")S.dlDone=null;render();window.scrollTo(0,0);return}
-  if(b.dataset.dfilt){S.dfilt=b.dataset.dfilt;S.dsel=null;S.dconf=null;render();return}
+  if(b.dataset.dfilt){S.dfilt=b.dataset.dfilt;S.dsel=null;S.dconf=null;render();if(S.dfilt==="vse"&&!S.dl.all)loadDl();return}
   if(b.dataset.dsel){S.dsel=S.dsel===b.dataset.dsel?null:b.dataset.dsel;S.dconf=null;render();return}
   if(b.dataset.dlact){dlAction(b.dataset.dlact,b.dataset.c);return}
   if(b.dataset.dprint){if(S.cam)camStop();S.dprint=b.dataset.dprint;render();window.scrollTo(0,0);return}
@@ -1758,6 +1822,7 @@ document.addEventListener("change",e=>{if(e.target.id==="fast"){S.fast=e.target.
   if(e.target.id==="ddat"){const d=dlDraft();d.prevzal=$("#dprev")?.value.trim()||"";d.pozn=$("#dpozn")?.value.trim()||"";d.datum=e.target.value;dlSaveDraft();render()}
   });
 let ovT;document.addEventListener("input",e=>{if(e.target.id==="ovq"){S.ovQuery=e.target.value;clearTimeout(ovT);ovT=setTimeout(render,250)}
+  if(e.target.id==="dlq"){S.dlq=e.target.value;clearTimeout(ovT);ovT=setTimeout(render,250)}
   if(e.target.id==="dodbq"){S.dq=e.target.value;clearTimeout(ovT);ovT=setTimeout(render,200)}});
 document.addEventListener("visibilitychange",()=>{if(document.hidden){if(S.cam)camStop()}else if(API){poll();flush()}});
 window.addEventListener("online",()=>{flush();poll()});
