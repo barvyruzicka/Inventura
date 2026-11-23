@@ -905,8 +905,13 @@ function loadRazitko(){if(S.razLoad||S.raz)return;const c=store.get("raz",null);
   S.razLoad=true;ordPost({a:"firma"}).then(r=>{S.raz=r.razitko||"";if(S.raz)store.set("raz",S.raz)}).catch(()=>{S.raz=""}).finally(()=>{S.razLoad=false;if(S.dprint)render()})}
 const DLR={id:0,c:1,t:2,kdo:3,oc:4,on:5,ico:6,cis:7,nm:8,ean:9,q:10,note:11,prev:12,dn:13,st:14,zm:15,zk:16};
 function dlDraft(){if(!S.dd)S.dd=store.get("dldraft",null)||{id:uid(),odb:null,items:[]};return S.dd}
+/* nový dodák bez položek nezačíná s naposledy vybranou firmou – odběratel se musí vybrat vždy znovu */
+function dlResetEmpty(){const d=dlDraft();if(d.odb&&!d.items.length&&!d.oprava){S.dd={id:uid(),odb:null,items:[]};dlSaveDraft();S.dstep="items"}}
 function dlSaveDraft(){store.set("dldraft",S.dd)}
 const todayIso=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+/* vlastní firma (BL Růžička) jako odběratel = vlastní spotřeba → povinný účel */
+const vlastni=c=>{const o=odbOf(c);return !!(o&&String(o[2]).replace(/\s/g,"")===FIRMA.ico)};
+const UCELY=["Úklid prodejny","Údržba a opravy","Balení a expedice","Vzorky a míchání","Provozní materiál"];
 const sigReq=c=>{const o=odbOf(c);return !!(o&&o[7])};
 function odbOf(c){return S.odb.rows.find(r=>r[0]===c)||null}
 function dlGroups(rows){const m=new Map();rows.forEach(r=>{if(!m.has(r[1]))m.set(r[1],[]);m.get(r[1]).push(r)});return [...m.values()]}
@@ -956,7 +961,9 @@ function viewDlNew(){
       <label class="row" style="justify-content:space-between;gap:10px"><span>Datum dodacího listu</span><input type="date" id="ddat" value="${esc(d.datum||todayIso())}" max="${todayIso()}" style="font:600 17px/1.2 var(--f-ui);padding:9px 10px;border-radius:8px;border:1.5px solid var(--line);background:var(--bg);color:var(--fg)"></label>
       ${d.datum&&d.datum!==todayIso()?`<div class="warnbox">Dodací list bude mít datum <b>${esc(d.datum.split("-").reverse().map(x=>+x).join(". "))}</b>, ne dnešní.</div>`:""}
       <input type="text" id="dprev" placeholder="Převzal (jméno)" value="${esc(d.prevzal||"")}" aria-label="Převzal" autocomplete="off">
-      <input type="text" id="dpozn" placeholder="Poznámka (zakázka, SPZ…)" value="${esc(d.pozn||"")}" aria-label="Poznámka k dodacímu listu" autocomplete="off">
+      ${vlastni(d.odb)?`<div class="warnbox"><b>Vlastní spotřeba firmy</b> – napište účel (pro účetní). Klepnutím doplníte:</div>
+      <div class="chips">${UCELY.map(u=>`<button type="button" class="chip" data-ucel="${esc(u)}" aria-pressed="${(d.pozn||"")===u}">${esc(u)}</button>`).join("")}</div>`:""}
+      <input type="text" id="dpozn" placeholder="${vlastni(d.odb)?"Účel – k čemu zboží je (povinné)":"Poznámka (zakázka, SPZ…)"}" value="${esc(d.pozn||"")}" aria-label="Poznámka k dodacímu listu" autocomplete="off">
       <div class="row" style="justify-content:space-between">${sigReq(d.odb)?`<span style="color:var(--bad);font-weight:700">Podpis odběratele – u této firmy povinný</span>`:`<span class="hint">Podpis odběratele prstem (nepovinný)</span>`}<button type="button" class="linkbtn" id="sigClear">smazat podpis</button></div>
       <canvas id="sig" style="width:100%;height:170px;border:1.5px dashed var(--line);border-radius:10px;background:#fff;touch-action:none"></canvas>
       <button class="btn primary big" type="button" id="dlSave">Uložit dodací list</button>
@@ -1029,6 +1036,7 @@ function sigPath(){return SIG.pts.filter(s=>s.length).map(s=>"M"+s.map(p=>p[0]+"
 async function dlSaveDoc(){
   const d=dlDraft(); if(!d.items.length||!d.odb)return; if(S.dsaving)return;
   d.prevzal=$("#dprev").value.trim(); d.pozn=$("#dpozn").value.trim(); d.datum=$("#ddat")?.value||d.datum||""; dlSaveDraft();
+  if(vlastni(d.odb)&&!d.pozn){toast("Napište účel – k čemu zboží je");$("#dpozn")?.focus();return}
   if(sigReq(d.odb)&&!SIG.pts.some(x=>x.length>2)){toast("Tato firma vyžaduje podpis – nechte ji podepsat do bílého pole");$("#sig")?.scrollIntoView({block:"center"});return}
   if(sigReq(d.odb)&&!d.prevzal){toast("Napište, kdo zboží převzal");$("#dprev")?.focus();return}
   const o=odbOf(d.odb)||[d.odb,d.odbN||d.odb,""];
@@ -1293,7 +1301,7 @@ function goModule(m){
   S.module=["inventura","objednavky","dodaci","stitky"].includes(m)?m:"home";
   S.current=null;S.choices=null;S.results=null;S.notFound=null;S.query="";
   if(S.module==="objednavky"){S.ofix="";S.oview="add";loadOrders()}
-  if(S.module==="dodaci"){S.dview="new";S.dprint=null;S.dlDone=null;S.dq="";loadDl();loadOdb()}
+  if(S.module==="dodaci"){S.dview="new";S.dprint=null;S.dlDone=null;S.dq="";dlResetEmpty();loadDl();loadOdb()}
   if(S.module==="stitky")labPdfPreload();
   const want=S.module==="home"?"":"#"+S.module;
   if(location.hash!==want)history.replaceState(null,"",location.pathname+location.search+want);
@@ -1743,6 +1751,7 @@ document.addEventListener("click",async e=>{
   if(b.dataset.oview){if(S.cam&&b.dataset.oview!=="add")camStop();S.oview=b.dataset.oview;S.osel=null;S.oconf=null;render();window.scrollTo(0,0);return}
   if(b.dataset.osup){S.osup=b.dataset.osup;render();return}
   if(b.dataset.ounit){S.ounit=b.dataset.ounit;render();return}
+  if(b.dataset.ucel){const d=dlDraft();d.prevzal=$("#dprev")?.value.trim()||"";d.datum=$("#ddat")?.value||d.datum||"";d.pozn=b.dataset.ucel;dlSaveDraft();const pi=$("#dpozn");if(pi)pi.value=d.pozn;render();return}
   if(b.dataset.otog!=null){const n=b.dataset.otog;S.oopen.has(n)?S.oopen.delete(n):S.oopen.add(n);S.osel=null;S.oconf=null;render();return}
   if(b.dataset.dtog!=null){const n=b.dataset.dtog;S.dopen.has(n)?S.dopen.delete(n):S.dopen.add(n);S.dsel=null;S.dconf=null;render();return}
   if(b.dataset.ofilt){S.ofilt=b.dataset.ofilt;S.osel=null;S.oconf=null;render();return}
@@ -1750,7 +1759,7 @@ document.addEventListener("click",async e=>{
   if(b.dataset.oact){ordAction(b.dataset.oact,b.dataset.id,b);return}
   if(b.dataset.supact){supAction(b.dataset.supact,b.dataset.sup,b);return}
   if(b.dataset.dodb){const d=dlDraft(),o=odbOf(b.dataset.dodb);d.odb=b.dataset.dodb;d.odbN=o?o[1]:"";dlSaveDraft();S.dq="";S.current=null;render();window.scrollTo(0,0);return}
-  if(b.dataset.dview){if(S.cam)camStop();S.dview=b.dataset.dview;S.dprint=null;S.dsel=null;S.dconf=null;if(S.dview==="new")S.dlDone=null;render();window.scrollTo(0,0);return}
+  if(b.dataset.dview){if(S.cam)camStop();S.dview=b.dataset.dview;S.dprint=null;S.dsel=null;S.dconf=null;if(S.dview==="new"){S.dlDone=null;dlResetEmpty()}render();window.scrollTo(0,0);return}
   if(b.dataset.dfilt){S.dfilt=b.dataset.dfilt;S.dsel=null;S.dconf=null;render();if(S.dfilt==="vse"&&!S.dl.all)loadDl();return}
   if(b.dataset.dsel){S.dsel=S.dsel===b.dataset.dsel?null:b.dataset.dsel;S.dconf=null;render();return}
   if(b.dataset.dlact){dlAction(b.dataset.dlact,b.dataset.c);return}
@@ -1821,7 +1830,14 @@ document.addEventListener("submit",e=>{
 document.addEventListener("change",e=>{if(e.target.id==="fast"){S.fast=e.target.checked;store.set("fast",S.fast)}
   if(e.target.id==="ddat"){const d=dlDraft();d.prevzal=$("#dprev")?.value.trim()||"";d.pozn=$("#dpozn")?.value.trim()||"";d.datum=e.target.value;dlSaveDraft();render()}
   });
-let ovT;document.addEventListener("input",e=>{if(e.target.id==="ovq"){S.ovQuery=e.target.value;clearTimeout(ovT);ovT=setTimeout(render,250)}
+let ovT,liveT;document.addEventListener("input",e=>{
+  if(e.target.id==="code"&&(S.module==="dodaci"||S.module==="objednavky"||S.module==="inventura")){
+    clearTimeout(liveT);const v=e.target.value.trim();
+    liveT=setTimeout(()=>{
+      if(v.length<2||/^[\d+ěščřžýáíé=.\-]+$/.test(v)){if(S.results||S.notFound){S.results=null;S.notFound=null;render()}return}
+      S.query=v;S.results=searchText(v);S.choices=null;S.notFound=S.results.length?null:v;S.current=null;render();
+    },350);
+  }if(e.target.id==="ovq"){S.ovQuery=e.target.value;clearTimeout(ovT);ovT=setTimeout(render,250)}
   if(e.target.id==="dlq"){S.dlq=e.target.value;clearTimeout(ovT);ovT=setTimeout(render,250)}
   if(e.target.id==="dodbq"){S.dq=e.target.value;clearTimeout(ovT);ovT=setTimeout(render,200)}});
 document.addEventListener("visibilitychange",()=>{if(document.hidden){if(S.cam)camStop()}else if(API){poll();flush()}});
