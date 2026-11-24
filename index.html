@@ -835,11 +835,13 @@ function viewOrdList(){
     if(!op){h+=`</section>`;continue}
     h+=`${si[3]?`<div class="hint">${esc(si[3])}</div>`:""}
       <div class="oacts">
+        ${S.ofilt==="zap"&&n==="Viton"?`<button class="btn primary" type="button" data-supact="vit" data-sup="${esc(n)}"${S.vit&&S.vit.busy?" disabled":""}>Připravit objednávku ve Vitonu</button>`:""}
         ${S.ofilt==="zap"?(how==="Cézar"?`<button class="btn" type="button" data-supact="csv" data-sup="${esc(n)}">Uložit pro Cézar</button>`:`<button class="btn" type="button" data-supact="copy" data-sup="${esc(n)}">Kopírovat seznam</button>`)
           +(si[2]?`<a class="btn" href="${esc(si[2])}" target="_blank" rel="noopener">Otevřít B2B ↗</a>`:"")
           +`<button class="btn" type="button" data-supact="allobj" data-sup="${esc(n)}">${S.oconf==="allobj|"+n?"Opravdu? Klepněte znovu":"Vše objednáno"}</button>`:""}
         ${S.ofilt!=="vse"?`<button class="btn danger" type="button" data-supact="alldel" data-sup="${esc(n)}">${S.oconf==="alldel|"+n?`Opravdu smazat ${g.length} pol.?`:"Smazat celou objednávku"}</button>`:""}
       </div>
+      ${n==="Viton"&&S.vit?vitPanel():""}
       <div class="list">${g.map(r=>ordRow(r)).join("")}</div></section>`;
   }
   if(!any)h+=`<section class="panel"><p class="hint" style="margin:0">${S.ofilt==="zap"?"Nic nečeká na objednání. Nové položky zapíšete v záložce Zapsat.":"Žádné položky."}</p></section>`;
@@ -872,7 +874,45 @@ function ordAction(st,id,b){
   if(st==="Zrušeno"&&S.oconf!=="del|"+id){S.oconf="del|"+id;render();return}
   ordSet([id],{stav:st},st==="Zrušeno"?"Zrušeno":"Označeno: "+st.toLowerCase());
 }
+/* ---- Viton: Tukan připraví rozpracovanou objednávku v b2b.viton.cz (odešle ji člověk ve Vitonu) ---- */
+const VIT_ERR={busy:"Objednávku ve Vitonu právě připravuje někdo jiný. Zkuste to za minutu.",prazdne:"U Vitonu teď nic nečeká na objednání."};
+async function vitRun(){
+  if(S.vit&&S.vit.busy)return;
+  const pick=(S.vit&&S.vit.pick)||{}, skip=Object.keys((S.vit&&S.vit.skip)||{});
+  S.vit={busy:true};S.oopen.add("Viton");render();
+  let r;
+  try{r=await apiPost({a:"vit_prep",name:S.name,pin:S.pin,pick,skip})}
+  catch(e){S.vit={err:"Bez spojení s tabulkou. Zkontrolujte internet a zkuste znovu."};render();return}
+  if(!r.ok){if(r.err==="pin"){S.vit=null;logout("PIN už neplatí. Přihlaste se znovu.");return}
+    S.vit={err:VIT_ERR[r.err]||("Nepodařilo se: "+(r.msg||r.err||"neznámá chyba"))};render();return}
+  S.vit=r.need?{need:r.need,pick:{},skip:{}}:{res:r};
+  render();if(r.order)toast("Objednávka ve Vitonu je připravená – zkontrolujte ji a odešlete",6000);
+}
+function vitPanel(){
+  const v=S.vit;
+  if(v.busy)return `<div class="warnbox">Připravuji objednávku ve Vitonu… trvá to asi minutu. Nechte aplikaci otevřenou.</div>`;
+  if(v.err)return `<div class="warnbox">${esc(v.err)}</div><div class="oacts"><button class="btn" type="button" data-supact="vit" data-sup="Viton">Zkusit znovu</button><button class="btn" type="button" data-vitclose="1">Zavřít</button></div>`;
+  if(v.need){
+    const ok=v.need.every(x=>v.pick[x.id]||v.skip[x.id]);
+    return `<div class="warnbox">Tyto položky neumím jistě najít u Vitonu. Vyberte správné zboží (příště už si ho budu pamatovat), nebo položku vynechte:</div>
+      ${v.need.map(x=>`<div style="padding:6px 0;border-top:1px solid var(--line)"><b>${esc(x.nm)}</b> <span class="hint">${fmt(x.q)} ${x.unit==="bal"?"bal.":"ks"}</span>
+        <div class="chips" style="margin-top:6px">${x.cand.map(c=>`<button type="button" class="chip" data-vitpick="${esc(x.id)}|${c[0]}" aria-pressed="${String(v.pick[x.id])===String(c[0])}">${esc(c[1])}</button>`).join("")}
+        <button type="button" class="chip" data-vitskip="${esc(x.id)}" aria-pressed="${!!v.skip[x.id]}">Vynechat</button></div>
+        ${x.cand.length?"":`<p class="hint" style="margin:4px 0 0">Podobné zboží jsem nenašel – vynechte ho a doplňte ve Vitonu ručně.</p>`}</div>`).join("")}
+      <div class="oacts"><button class="btn primary" type="button" data-supact="vit" data-sup="Viton"${ok?"":" disabled"}>Pokračovat</button><button class="btn" type="button" data-vitclose="1">Zrušit</button></div>`;
+  }
+  const r=v.res, bad=r.items.filter(x=>!x.ok);
+  return `<div class="warnbox"><b>Objednávka je připravená ve Vitonu, ale ještě NENÍ odeslaná.</b> Číslo ${esc(r.number)}. Otevřete ji, zkontrolujte a klepněte na <b>Odeslat objednávku</b>. Potom tady dejte <b>Vše objednáno</b>.</div>
+    <div class="list">${r.items.map(x=>`<div class="li" style="cursor:default"><span class="n">${esc(x.vn||x.nm)}</span><span class="q">${x.ok?fmt(x.ks)+" ks":"–"}</span>
+      <span class="s">${x.ok?(x.unit==="bal"?fmt(x.q)+" bal. · ":"")+fmtKc(x.cena)+" bez DPH":""}${x.warn?`${x.ok?" · ":""}<b class="${x.ok?"":"neg"}">${esc(x.warn)}</b>`:""}</span></div>`).join("")}
+    ${(r.navic||[]).map(x=>`<div class="li" style="cursor:default"><span class="n">${esc(x.n)}</span><span class="q">${fmt(x.ks)} ks</span><span class="s">přidal Viton · ${fmtKc(x.cena)}</span></div>`).join("")}</div>
+    <p style="margin:6px 0 0">Celkem bez DPH: <b>${fmtKc(r.celkem)}</b>${r.zdarma?` · do dopravy zdarma chybí ${esc(r.zdarma)}`:""}${r.skipped?` · vynecháno ${r.skipped} pol.`:""}</p>
+    ${bad.length?`<div class="warnbox">${bad.length} pol. se nepodařilo vložit – doplňte je ve Vitonu ručně.</div>`:""}
+    <div class="oacts"><a class="btn primary" href="${esc(r.url)}" target="_blank" rel="noopener">Otevřít ve Vitonu ↗</a><button class="btn" type="button" data-vitclose="1">Zavřít</button></div>
+    <p class="hint" style="margin:0">Když vás Viton při otevření odhlásí, přihlaste se znovu – objednávka tam zůstane mezi rozpracovanými.</p>`;
+}
 async function supAction(act,sup,b){
+  if(act==="vit"){vitRun();return}
   const g=S.ord.rows.filter(r=>r[3]===sup&&ordVis(r)&&r[10]===(act==="alldel"&&S.ofilt==="obj"?"Objednáno":"Zapsáno"));
   if(act==="alldel"){
     if(S.oconf!=="alldel|"+sup){S.oconf="alldel|"+sup;render();return}
@@ -1764,6 +1804,9 @@ document.addEventListener("click",async e=>{
   if(b.dataset.ofilt){S.ofilt=b.dataset.ofilt;S.osel=null;S.oconf=null;render();return}
   if(b.dataset.oid){S.osel=S.osel===b.dataset.oid?null:b.dataset.oid;S.oconf=null;render();return}
   if(b.dataset.oact){ordAction(b.dataset.oact,b.dataset.id,b);return}
+  if(b.dataset.vitpick){const [id,vid]=b.dataset.vitpick.split("|");S.vit.pick[id]=vid;delete S.vit.skip[id];render();return}
+  if(b.dataset.vitskip){const id=b.dataset.vitskip;S.vit.skip[id]=!S.vit.skip[id];if(S.vit.skip[id])delete S.vit.pick[id];render();return}
+  if(b.dataset.vitclose){S.vit=null;render();return}
   if(b.dataset.supact){supAction(b.dataset.supact,b.dataset.sup,b);return}
   if(b.dataset.dodb){const d=dlDraft(),o=odbOf(b.dataset.dodb);d.odb=b.dataset.dodb;d.odbN=o?o[1]:"";dlSaveDraft();S.dq="";S.current=null;render();window.scrollTo(0,0);return}
   if(b.dataset.dview){if(S.cam)camStop();S.dview=b.dataset.dview;S.dprint=null;S.dsel=null;S.dconf=null;if(S.dview==="new"){S.dlDone=null;dlResetEmpty()}render();window.scrollTo(0,0);return}
