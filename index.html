@@ -294,7 +294,7 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const norm=s=>String(s??"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().trim();
 const fmt=n=>{n=Math.round(n*1000)/1000;return n.toLocaleString("cs-CZ")};
 const parseQ=v=>{const n=parseFloat(String(v).replace(",",".").replace(/\s/g,""));return isFinite(n)?n:NaN};
-let toastT;function toast(t){const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,2200)}
+let toastT;function toast(t,ms){const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,ms||2200)}
 function savePending(){store.set("pending",S.pending)}
 
 /* ---------- server ---------- */
@@ -833,7 +833,7 @@ function viewOrdList(){
     if(!op){h+=`</section>`;continue}
     h+=`${si[3]?`<div class="hint">${esc(si[3])}</div>`:""}
       <div class="oacts">
-        ${S.ofilt==="zap"?(how==="Cézar"?`<button class="btn" type="button" data-supact="csv" data-sup="${esc(n)}">Stáhnout CSV pro Cézar</button>`:`<button class="btn" type="button" data-supact="copy" data-sup="${esc(n)}">Kopírovat seznam</button>`)
+        ${S.ofilt==="zap"?(how==="Cézar"?`<button class="btn" type="button" data-supact="csv" data-sup="${esc(n)}">Uložit pro Cézar</button>`:`<button class="btn" type="button" data-supact="copy" data-sup="${esc(n)}">Kopírovat seznam</button>`)
           +(si[2]?`<a class="btn" href="${esc(si[2])}" target="_blank" rel="noopener">Otevřít B2B ↗</a>`:"")
           +`<button class="btn" type="button" data-supact="allobj" data-sup="${esc(n)}">${S.oconf==="allobj|"+n?"Opravdu? Klepněte znovu":"Vše objednáno"}</button>`:""}
         ${S.ofilt!=="vse"?`<button class="btn danger" type="button" data-supact="alldel" data-sup="${esc(n)}">${S.oconf==="alldel|"+n?`Opravdu smazat ${g.length} pol.?`:"Smazat celou objednávku"}</button>`:""}
@@ -886,12 +886,13 @@ async function supAction(act,sup,b){
     /* číslo zboží;množství;poznámka (zrnitost, velikost…) – v Cézaru import 04 „Objednávky a dodáky - import (Tukan)“ (UTF-8, 3 údaje) */
     const lines=ok.map(r=>r[4]+";"+String(Math.round(r[7]*1000)/1000)+";"+String(r[9]||"").replace(/[;\r\n\t"]+/g," ").trim().slice(0,200));
     const d=new Date(),p2=n=>String(n).padStart(2,"0"),name=`Objednavka-${sup.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9]+/g,"_")}-${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}.csv`;
-    const blob=new Blob([lines.join("\r\n")+"\r\n"],{type:"text/csv"});
-    if(window.showSaveFilePicker&&!/Android|iPhone|iPad/i.test(navigator.userAgent)){
-      try{const fh=await showSaveFilePicker({id:"blr-obj-csv",suggestedName:name,types:[{description:"CSV",accept:{"text/csv":[".csv"]}}]});const w=await fh.createWritable();await w.write(blob);await w.close()}
-      catch(err){if(err&&err.name==="AbortError")return;toast("Uložení se nepovedlo");return}
-    }else saveBlob(blob,name);
-    toast(`${lines.length} řádků uloženo`+(bal.length?` · ${bal.length} v baleních – zkontrolujte počet`:"")+(skip?` · ${skip} bez kódu zadejte ručně`:""));return;
+    if(!lines.length){toast("Žádná položka s číslem zboží");return}
+    const text=lines.join("\r\n")+"\r\n", info=(bal.length?` · ${bal.length} v baleních – zkontrolujte počet`:"")+(skip?` · ${skip} bez kódu zadejte ručně`:"");
+    /* uloží se na server do Prenosy\Objednavky (přes Google Disk); když to nejde, stáhne se do zařízení */
+    toast("Ukládám pro Cézar…");
+    try{const r=await ordPost({a:"ord_csv",file:name,text});toast(`Uloženo pro Cézar: ${r.file} (${lines.length} ř.)`+info,6000);return}
+    catch(err){if(err.message==="pin")return}
+    if(await saveCsvFile(name,lines,"blr-obj-csv"))toast(`Server nedostupný – soubor stažen (${lines.length} ř.)`+info,6000);return;
   }
   if(act==="copy"){
     const txt=`Objednávka ${sup} – ${new Date().toLocaleDateString("cs-CZ")}\n`+g.map(r=>`${r[5]} – ${fmt(r[7])} ${r[8]==="bal"?"bal.":"ks"}${r[9]?" ("+r[9]+")":""}${r[6]?" · EAN "+r[6]:""}${r[4]?" · "+r[4]:""}`).join("\n");
