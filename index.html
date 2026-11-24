@@ -34,6 +34,8 @@
   --ok:#6cc488; --warn:#e8b14a; --bad:#f2867d; color-scheme:dark}}
 body[data-area="SKLAD"]{--area:var(--sklad)} body[data-area="OBCHOD"]{--area:var(--obchod)} body[data-area="MICHARNA"]{--area:var(--michr)}
 *{box-sizing:border-box}
+/* rychlé ťukání (např. na +) nemá zvětšovat stránku – vypne zoom dvojitým klepnutím, přiblížení dvěma prsty zůstává */
+html,body,button,a,input,select,textarea,label{touch-action:manipulation}
 html,body{min-height:100%;margin:0}
 body{background:var(--bg);color:var(--fg);font:16px/1.4 var(--f-ui);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 calc(96px + env(safe-area-inset-bottom,0px));-webkit-text-size-adjust:100%}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
