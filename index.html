@@ -817,9 +817,9 @@ function varOf(cis){return cis&&S.ord.vary?S.ord.vary[cis]:null}
 function kpcFor(cis,note){const v=varOf(cis),g=gritOf(note);if(v&&g){const x=v.find(y=>y[0]===g);if(x&&+x[1]>1)return +x[1]}return kpcOf(cis)}
 function vksTxt(cis,v){
   const vr=varOf(cis),g=gritOf(v.note),miss=vr&&g&&!vr.some(y=>y[0]===g);
-  if(v.unit!=="bal")return miss?`${g} v ceníku dodavatele není – zkontrolujte`:"";
+  if(v.unit!=="bal")return miss?`${g} v ceníku Smirdex není – zkontrolujte`:"";
   const k=kpcFor(cis,v.note);
-  return (k?`= ${fmt(Math.round((parseQ(v.qty)||0)*k*1000)/1000)} ks (bal. po ${fmt(k)})`:"počet kusů v balení neznám – zkontrolujte")+(miss?` · ${g} v ceníku dodavatele není`:"");
+  return (k?`= ${fmt(Math.round((parseQ(v.qty)||0)*k*1000)/1000)} ks (bal. po ${fmt(k)})`:"počet kusů v balení neznám – zkontrolujte")+(miss?` · ${g} v ceníku Smirdex není`:"");
 }
 function balKs(r){const k=r[8]==="bal"?kpcFor(r[4],r[9]):0;return k?" = "+fmt(Math.round(r[7]*k*1000)/1000)+" ks":""}
 const ABR_RE=/brus|smirdex|zrnit|kotouc|mirka|scotch|abraz|rouno|\bp\s?\d{2,4}\b/;
@@ -865,7 +865,7 @@ function orderCard(key){
     </div>`;
   return `<section class="panel flash" id="card">
     ${free?`<h2>Zboží bez kódu</h2><input type="text" id="ofree" placeholder="Název zboží (např. S2000 0110 7 l)" aria-label="Název zboží" value="${esc(S.ofreeNm||"")}">`
-      :`<div><p class="item-name">${esc(r?r[0]:key)}</p><div class="code">${esc(key)}${r&&r[1]?" · EAN "+esc(r[1]):""}${r?esc(catInfo(r,true)):" · v Cézaru 0"}${r&&r[6]?" · dod. "+esc(r[6]):""}${varOf(key)?` · <b>balení podle zrnitosti (ceník ${esc(S.ord.varSup&&S.ord.varSup[key]||"dodavatele")})</b>`:kpc?` · <b>1 bal. = ${fmt(kpc)} ks</b>`:""}</div></div>`}
+      :`<div><p class="item-name">${esc(r?r[0]:key)}</p><div class="code">${esc(key)}${r&&r[1]?" · EAN "+esc(r[1]):""}${r?esc(catInfo(r,true)):" · v Cézaru 0"}${r&&r[6]?" · dod. "+esc(r[6]):""}${varOf(key)?` · <b>balení podle zrnitosti (ceník Smirdex)</b>`:kpc?` · <b>1 bal. = ${fmt(kpc)} ks</b>`:""}</div></div>`}
     ${open.length?`<div class="warnbox">Zapsáno i u jiného dodavatele: ${open.map(o=>`<b>${esc(o[3])}</b> ${fmt(o[7])} ${esc(o[8])}${o[9]?" ("+esc(o[9])+")":""} · ${esc(o[2])} ${dmy(o[1])}`).join("; ")}</div>`:""}
     ${showSup?`<div><h2 style="margin-bottom:8px">Dodavatel${!free&&S.ord.map[key]?` <span class="hint" style="text-transform:none;letter-spacing:0">(naposledy ${esc(S.ord.map[key])})</span>`:""}</h2>
       <div class="supgrid">${sups.map(x=>`<button type="button" class="chip" data-osup="${esc(x[0])}" aria-pressed="${S.osup===x[0]}">${esc(x[0])}<small>${esc(x[1])}</small></button>`).join("")}</div></div>`
