@@ -814,12 +814,17 @@ function kpcOf(cis){const r=cis?itemRow(cis):null;const n=r?+r[7]:0;return n>1?n
 /* zrnitost z poznámky („P120“, „120“) a ks v balení podle ceníku dodavatele (list Brusivo varianty), jinak z karty v Cézaru */
 function gritOf(note){const m=String(note||"").toUpperCase().match(/\bP?\s?(\d{2,4})\b/);return m?"P"+m[1]:""}
 function varOf(cis){return cis&&S.ord.vary?S.ord.vary[cis]:null}
-function kpcFor(cis,note){const v=varOf(cis),g=gritOf(note);if(v&&g){const x=v.find(y=>y[0]===g);if(x&&+x[1]>1)return +x[1]}return kpcOf(cis)}
+/* najde variantu z ceníku podle poznámky: „P120“ i slovní stupně („very fine“ dřív než „fine“) */
+const vkey=t=>norm(t).replace(/[\s\-_.]/g,"");
+function varMatch(vr,note){if(!vr||!String(note||"").trim())return null;const g=gritOf(note),n=vkey(note);
+  for(const x of [...vr].sort((a,b)=>vkey(b[0]).length-vkey(a[0]).length)){const l=vkey(x[0]);if(/^p\d+$/.test(l)){if(g&&l===vkey(g))return x}else if(l&&n.includes(l))return x}
+  return null}
+function kpcFor(cis,note){const x=varMatch(varOf(cis),note);if(x&&+x[1]>1)return +x[1];return kpcOf(cis)}
 function vksTxt(cis,v){
-  const vr=varOf(cis),g=gritOf(v.note),miss=vr&&g&&!vr.some(y=>y[0]===g);
-  if(v.unit!=="bal")return miss?`${g} v ceníku Smirdex není – zkontrolujte`:"";
+  const vr=varOf(cis),miss=vr&&String(v.note||"").trim()&&!varMatch(vr,v.note),mt=`„${String(v.note).trim()}“ v ceníku Smirdex není`;
+  if(v.unit!=="bal")return miss?mt+" – zkontrolujte":"";
   const k=kpcFor(cis,v.note);
-  return (k?`= ${fmt(Math.round((parseQ(v.qty)||0)*k*1000)/1000)} ks (bal. po ${fmt(k)})`:"počet kusů v balení neznám – zkontrolujte")+(miss?` · ${g} v ceníku Smirdex není`:"");
+  return (k?`= ${fmt(Math.round((parseQ(v.qty)||0)*k*1000)/1000)} ks (bal. po ${fmt(k)})`:"počet kusů v balení neznám – zkontrolujte")+(miss?" · "+mt:"");
 }
 function balKs(r){const k=r[8]==="bal"?kpcFor(r[4],r[9]):0;return k?" = "+fmt(Math.round(r[7]*k*1000)/1000)+" ks":""}
 const ABR_RE=/brus|smirdex|smirek|zrnit|mirka|abraz|rouno/;
@@ -828,9 +833,10 @@ function gritChips(key,nm){
   const vr=varOf(key);
   if(!vr&&!ABR_RE.test(norm(nm||"")))return [];
   const cnt=new Map();
+  if(vr){S.ord.rows.filter(x=>x[4]===key).forEach(x=>{const m=varMatch(vr,x[9]);if(m)cnt.set(m[0],(cnt.get(m[0])||0)+1)});
+    const all=vr.map(y=>y[0]);return [...[...cnt.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0]),...all.filter(g=>!cnt.has(g))]}
   S.ord.rows.filter(x=>x[4]===key).forEach(x=>{(String(x[9]||"").toUpperCase().match(/\bP?\s?\d{2,4}\b/g)||[]).forEach(t=>{const g="P"+t.replace(/\D/g,"");cnt.set(g,(cnt.get(g)||0)+1)})});
   const hist=[...cnt.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
-  if(vr){const all=vr.map(y=>y[0]);return [...hist.filter(g=>all.includes(g)),...all.filter(g=>!cnt.has(g))]}
   return [...hist,...GRITS.filter(g=>!cnt.has(g))].slice(0,18);
 }
 /* varianty jednoho zboží u jednoho dodavatele: [{id|null, note, qty, unit, del, o:{původní}}] */
@@ -852,7 +858,7 @@ function orderCard(key){
   const open=free?[]:S.ord.rows.filter(x=>x[4]===key&&x[10]==="Zapsáno"&&x[3]!==S.osup);
   const sups=S.ord.sup.length?S.ord.sup:[["Ostatní","Jinak","",""]];
   const grits=free?[]:gritChips(key,r?r[0]:"");
-  const used=new Set(S.ovars.filter(v=>!v.del).map(v=>String(v.note).trim().toUpperCase()));
+  const used=new Set(S.ovars.filter(v=>!v.del).map(v=>vkey(v.note)));
   const nEx=S.ovars.filter(v=>v.id).length, nNew=S.ovars.filter(v=>!v.id&&!v.del).length;
   const many=S.ovars.filter(v=>!v.del).length>1;
   const vrow=(v,i)=>`<div class="vrow${v.del?" vdel":""}">
@@ -872,7 +878,7 @@ function orderCard(key){
       :`<div class="row" style="justify-content:space-between"><span>Dodavatel: <b>${esc(S.osup)}</b>${!free&&S.ord.map[key]&&S.ord.map[key]!==S.osup?` <span class="hint">(naposledy ${esc(S.ord.map[key])})</span>`:""}</span><button type="button" class="linkbtn" id="ochange">změnit</button></div>`}
     ${nEx?`<div class="warnbox">U <b>${esc(S.osup)}</b> už je zapsáno – můžete upravit počty, odebrat nebo přidat další variantu.</div>`:""}
     <form id="ordForm" style="display:flex;flex-direction:column;gap:8px" autocomplete="off">
-      ${grits.length?`<div><div class="hint" style="margin-bottom:4px">Rychlá volba zrnitosti${S.ord.rows.some(x=>x[4]===key)?" (nejčastější první)":""}:</div><div class="chips gchips">${grits.map(g=>`<button type="button" class="chip" data-vgrit="${g}" aria-pressed="${used.has(g)}"${varOf(key)?` title="balení ${esc((varOf(key).find(y=>y[0]===g)||[])[1]||"?")} ks"`:""}>${g}</button>`).join("")}</div></div>`:""}
+      ${grits.length?`<div><div class="hint" style="margin-bottom:4px">Rychlá volba ${varOf(key)&&varOf(key).some(y=>!/^P\d+$/i.test(y[0]))?"hrubosti":"zrnitosti"}${S.ord.rows.some(x=>x[4]===key)?" (nejčastější první)":""}:</div><div class="chips gchips">${grits.map(g=>`<button type="button" class="chip" data-vgrit="${esc(g)}" aria-pressed="${used.has(vkey(g))}"${varOf(key)?` title="balení ${esc((varOf(key).find(y=>y[0]===g)||[])[1]||"?")} ks"`:""}>${esc(g)}</button>`).join("")}</div></div>`:""}
       <div class="vlist">${S.ovars.map(vrow).join("")}</div>
       <button type="button" class="btn" id="vadd">+ další varianta</button>
       <button class="btn primary big" type="submit">${nEx?"Uložit vše":nNew>1?`Zapsat ${nNew} ${nNew<5?"varianty":"variant"}`:"Zapsat do objednávky"}</button>
@@ -1903,7 +1909,7 @@ document.addEventListener("click",async e=>{
   if(b.dataset.vunit!=null){ovarsSync();const v=S.ovars&&S.ovars[+b.dataset.vunit];if(v){v.unit=v.unit==="bal"?"ks":"bal";render()}return}
   if(b.dataset.vdel!=null){ovarsSync();const i=+b.dataset.vdel,v=S.ovars[i];if(!v)return;if(v.id)v.del=true;else S.ovars.splice(i,1);if(!S.ovars.length)S.ovars.push({id:null,note:"",qty:"1",unit:"ks",del:false});render();return}
   if(b.dataset.vundel!=null){ovarsSync();const v=S.ovars[+b.dataset.vundel];if(v)v.del=false;render();return}
-  if(b.dataset.vgrit){ovarsSync();const g=b.dataset.vgrit;const ix=S.ovars.findIndex(v=>!v.del&&String(v.note).trim().toUpperCase()===g);
+  if(b.dataset.vgrit){ovarsSync();const g=b.dataset.vgrit;const ix=S.ovars.findIndex(v=>!v.del&&vkey(v.note)===vkey(g));
     if(ix>=0){const el=document.querySelector(`[data-vq="${ix}"]`);if(el){el.focus();el.select()}return}
     const em=S.ovars.find(v=>!v.del&&!String(v.note).trim());const last=S.ovars[S.ovars.length-1];
     if(em)em.note=g;else S.ovars.push({id:null,note:g,qty:"1",unit:last?last.unit:"ks",del:false});
