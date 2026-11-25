@@ -701,13 +701,22 @@ async function loadSmeny(){
   catch(e){}finally{smBusy=false}
 }
 const DNY=["neděle","pondělí","úterý","středa","čtvrtek","pátek","sobota"];
+/* jméno v Tukanu → jméno ve směnách v kalendáři (kde se liší) */
+const SM_JMENO={"Petra":"Peťa"};
+const smKdo=t=>{const i=t.indexOf(" – ");return i>0?t.slice(0,i):t};
+const smJa=t=>norm(smKdo(t))===norm(SM_JMENO[S.name]||S.name);
 function smLine(t){const i=t.indexOf(" – ");return i>0?`<b>${esc(t.slice(0,i))}</b> <span class="hint">${esc(t.slice(i+3))}</span>`:esc(t)}
 function smenyPanel(){
   const sm=S.smeny; if(!sm)return "";
-  const dnes=sm.dny.find(d=>d.d===sm.dnes), dalsi=sm.dny.filter(d=>d.d>sm.dnes).slice(0,6);
+  const dnes=sm.dny.find(d=>d.d===sm.dnes), dalsi=sm.dny.filter(d=>d.d>sm.dnes&&(new Date(d.d)-new Date(sm.dnes))<7*864e5);
   const den=iso=>{const d=new Date(iso+"T12:00:00");return DNY[d.getDay()]+" "+d.getDate()+". "+(d.getMonth()+1)+"."};
-  return `<section class="panel"><div class="row" style="justify-content:space-between"><h2>Dnes v obchodě</h2>${dalsi.length?`<button type="button" class="linkbtn" data-smtyd="1">${S.smTyd?"skrýt týden":"celý týden"}</button>`:""}</div>
-    ${dnes&&dnes.s.length?`<div class="list">${dnes.s.map(t=>`<div class="li" style="cursor:default;grid-template-columns:1fr"><span class="n">${smLine(t)}</span></div>`).join("")}</div>`
+  const moje=sm.dny.filter(d=>d.d>=sm.dnes).map(d=>({d:d.d,s:d.s.filter(smJa)})).filter(d=>d.s.length);
+  if(S.smMoje)return `<section class="panel"><div class="row" style="justify-content:space-between"><h2>Moje směny</h2><button type="button" class="linkbtn" data-smmoje="1">zpět</button></div>
+    ${moje.length?`<div class="list">${moje.map(d=>`<div class="li" style="cursor:default"><span class="n" style="text-transform:capitalize">${d.d===sm.dnes?"dnes":den(d.d)}</span><span class="q" style="font-size:15px">${d.s.map(t=>esc(t.slice(t.indexOf(" – ")+3))).join(", ")}</span></div>`).join("")}</div>
+      <p class="hint" style="margin:0">Na ${sm.dny.length>8?"5 týdnů":"týden"} dopředu podle kalendáře Prodejna BL.</p>`
+      :`<p class="hint" style="margin:0">Na nejbližší dny pro vás v kalendáři Prodejna BL žádnou směnu nevidím${SM_JMENO[S.name]||S.name?" (hledám jméno „"+esc(SM_JMENO[S.name]||S.name)+"“)":""}.</p>`}</section>`;
+  return `<section class="panel"><div class="row" style="justify-content:space-between"><h2>Dnes v obchodě</h2><span class="row" style="gap:12px"><button type="button" class="linkbtn" data-smmoje="1">moje směny</button>${dalsi.length?`<button type="button" class="linkbtn" data-smtyd="1">${S.smTyd?"skrýt týden":"celý týden"}</button>`:""}</span></div>
+    ${dnes&&dnes.s.length?`<div class="list">${dnes.s.map(t=>`<div class="li" style="cursor:default;grid-template-columns:1fr${smJa(t)?";background:color-mix(in srgb,var(--accent) 8%,var(--surface))":""}"><span class="n">${smLine(t)}${smJa(t)?' <span class="stag obj">já</span>':""}</span></div>`).join("")}</div>`
       :`<p class="hint" style="margin:0">${dalsi.length?"Dnes podle kalendáře nikdo nemá směnu.":"V kalendáři Prodejna BL zatím nejsou na tento týden žádné směny."}</p>`}
     ${S.smTyd?dalsi.map(d=>`<div style="padding-top:6px"><div class="hint" style="text-transform:capitalize;font-weight:700">${den(d.d)}</div>${d.s.map(t=>`<div style="padding:2px 0">${smLine(t)}</div>`).join("")}</div>`).join(""):""}
   </section>`;
@@ -1815,6 +1824,7 @@ document.addEventListener("click",async e=>{
   if(b.dataset.pick){if(b.dataset.go)S.view="scan";pick(b.dataset.pick);if(!S.cam)window.scrollTo(0,0);return}
   if(b.dataset.step){const q=$("#qty");const v=parseQ(q.value)||0;q.value=fmt(Math.max(0,v+ +b.dataset.step));return}
   if(b.dataset.smtyd){S.smTyd=!S.smTyd;render();return}
+  if(b.dataset.smmoje){S.smMoje=!S.smMoje;render();return}
   if(b.dataset.mod){goModule(b.dataset.mod);return}
   if(b.dataset.ofix){S.ofix=b.dataset.ofix;S.osupFor=null;render();window.scrollTo(0,0);return}
   if(b.dataset.oview){if(S.cam&&b.dataset.oview!=="add")camStop();S.oview=b.dataset.oview;S.osel=null;S.oconf=null;render();window.scrollTo(0,0);return}
