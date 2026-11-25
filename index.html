@@ -693,11 +693,31 @@ const ICONS={
   obj:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v15H5z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>',
   dl:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>'
 };
+/* ---- směny z Google kalendáře „Prodejna BL“ (jen zobrazení, mění se v kalendáři) ---- */
+let smBusy=false;
+async function loadSmeny(){
+  if(!API||!S.name||smBusy||(S.smeny&&Date.now()-S.smeny.t<6e5))return; smBusy=true;
+  try{const r=await apiGet({a:"smeny"});if(r.ok){S.smeny={dny:r.dny||[],dnes:r.dnes,t:Date.now()};if(S.module==="home")render()}}
+  catch(e){}finally{smBusy=false}
+}
+const DNY=["neděle","pondělí","úterý","středa","čtvrtek","pátek","sobota"];
+function smLine(t){const i=t.indexOf(" – ");return i>0?`<b>${esc(t.slice(0,i))}</b> <span class="hint">${esc(t.slice(i+3))}</span>`:esc(t)}
+function smenyPanel(){
+  const sm=S.smeny; if(!sm)return "";
+  const dnes=sm.dny.find(d=>d.d===sm.dnes), dalsi=sm.dny.filter(d=>d.d>sm.dnes).slice(0,6);
+  const den=iso=>{const d=new Date(iso+"T12:00:00");return DNY[d.getDay()]+" "+d.getDate()+". "+(d.getMonth()+1)+"."};
+  return `<section class="panel"><div class="row" style="justify-content:space-between"><h2>Dnes v obchodě</h2>${dalsi.length?`<button type="button" class="linkbtn" data-smtyd="1">${S.smTyd?"skrýt týden":"celý týden"}</button>`:""}</div>
+    ${dnes&&dnes.s.length?`<div class="list">${dnes.s.map(t=>`<div class="li" style="cursor:default;grid-template-columns:1fr"><span class="n">${smLine(t)}</span></div>`).join("")}</div>`
+      :`<p class="hint" style="margin:0">${dalsi.length?"Dnes podle kalendáře nikdo nemá směnu.":"V kalendáři Prodejna BL zatím nejsou na tento týden žádné směny."}</p>`}
+    ${S.smTyd?dalsi.map(d=>`<div style="padding-top:6px"><div class="hint" style="text-transform:capitalize;font-weight:700">${den(d.d)}</div>${d.s.map(t=>`<div style="padding:2px 0">${smLine(t)}</div>`).join("")}</div>`).join(""):""}
+  </section>`;
+}
 function viewHome(){
   const mk=new Set();let pcs=0;for(const a of AREAS){const it=itemsOf(a.id+"~"+pkey(S.name));for(const k in it)if(+it[k].q>0){mk.add(k);pcs+=+it[k].q}}const mine=mk.size;
   const t=totals();let all=0;for(const [,o] of t)if(o.ALL>0)all++;
   const h=new Date().getHours(), greet=h<10?"Dobré ráno":h<18?"Dobrý den":"Dobrý večer";
   return `<section style="display:flex;flex-direction:column;gap:4px;padding-top:6px"><p class="hint" style="margin:0">Barvy Laky Růžička · Třebíč</p><p class="hello">${greet}, ${esc(S.name)}</p></section>
+  ${smenyPanel()}
   <section class="tiles">
     <button type="button" class="tile" data-mod="objednavky"><span class="ic" style="--c:var(--obchod)">${ICONS.obj}</span>
       <span><b>Objednávky</b><small>${S.ord.loaded?(ordCount("Zapsáno")?`K objednání ${fmt(ordCount("Zapsáno"))} pol.`:"Nic nečeká na objednání")+(ordCount("Objednáno")?` · objednáno ${fmt(ordCount("Objednáno"))}`:""):"Sešit objednávek podle dodavatelů"}</small></span><span class="go">›</span></button>
@@ -1350,6 +1370,7 @@ function goModule(m){
   if(S.module==="objednavky"){S.ofix="";S.oview="add";loadOrders()}
   if(S.module==="dodaci"){S.dview="new";S.dprint=null;S.dlDone=null;S.dq="";dlResetEmpty();loadDl();loadOdb()}
   if(S.module==="stitky")labPdfPreload();
+  if(S.module==="home")loadSmeny();
   const want=S.module==="home"?"":"#"+S.module;
   if(location.hash!==want)history.replaceState(null,"",location.pathname+location.search+want);
   render();window.scrollTo(0,0);
@@ -1385,7 +1406,7 @@ function setUser(name,pin){S.name=name;S.pin=pin;store.set("user",{name,pin});S.
 async function doLogin(name,pin){
   pin=String(pin||"").trim(); if(!pin){S.loginMsg="Zadejte PIN.";render();return}
   try{const r=await apiPost({a:"login",name,pin});
-    if(r.ok){setUser(r.name,pin);render();flush();loadOrders();loadDl();loadOdb();toast("Přihlášen: "+r.name)}
+    if(r.ok){setUser(r.name,pin);render();flush();loadOrders();loadDl();loadOdb();loadSmeny();toast("Přihlášen: "+r.name)}
     else if(r.err==="pin"){S.loginMsg="Špatný PIN.";render()}
     else{S.loginMsg="Přihlášení se nepovedlo ("+(r.err||"chyba")+").";render()}
   }catch(e){S.loginMsg="Bez spojení s tabulkou. Zkuste to za chvíli.";render()}
@@ -1793,6 +1814,7 @@ document.addEventListener("click",async e=>{
   if(b.dataset.view){S.view=b.dataset.view;if(S.view!=="scan"&&S.cam)camStop();render();window.scrollTo(0,0);return}
   if(b.dataset.pick){if(b.dataset.go)S.view="scan";pick(b.dataset.pick);if(!S.cam)window.scrollTo(0,0);return}
   if(b.dataset.step){const q=$("#qty");const v=parseQ(q.value)||0;q.value=fmt(Math.max(0,v+ +b.dataset.step));return}
+  if(b.dataset.smtyd){S.smTyd=!S.smTyd;render();return}
   if(b.dataset.mod){goModule(b.dataset.mod);return}
   if(b.dataset.ofix){S.ofix=b.dataset.ofix;S.osupFor=null;render();window.scrollTo(0,0);return}
   if(b.dataset.oview){if(S.cam&&b.dataset.oview!=="add")camStop();S.oview=b.dataset.oview;S.osel=null;S.oconf=null;render();window.scrollTo(0,0);return}
@@ -1902,7 +1924,7 @@ async function start(){
   setInterval(()=>{if(!document.hidden){poll();flush()}},5000);
   setInterval(()=>{if(!document.hidden&&S.module==="objednavky"&&S.name)loadOrders()},10000);
   setInterval(()=>{if(!document.hidden&&S.module==="dodaci"&&S.name&&S.dview==="list"&&!S.dprint)loadDl()},15000);
-  loadDl(); if(S.module==="dodaci")loadOdb(); if(S.module==="stitky")labPdfPreload();
+  loadDl(); loadSmeny(); if(S.module==="dodaci")loadOdb(); if(S.module==="stitky")labPdfPreload();
 }
 start();
 if("serviceWorker" in navigator&&location.protocol==="https:"){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})})}
