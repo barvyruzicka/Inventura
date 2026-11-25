@@ -831,7 +831,7 @@ const ABR_RE=/brus|smirdex|smirek|zrnit|mirka|abraz|rouno/;
 const GRITS=["P60","P80","P100","P120","P150","P180","P220","P240","P320","P400","P500","P600","P800","P1000","P1200","P1500","P2000","P3000"];
 /* rukavice: velikosti, jen u karet, které velikost nemají už v názvu (PROSOFT 8 apod. jsou samostatné karty) */
 const GLOVE_SIZES=["6 / XS","7 / S","8 / M","9 / L","10 / XL","11 / XXL"];
-const isGlove=nm=>/rukavic/.test(norm(nm||""))&&!/\b(6|7|8|9|10|11|10[.,]5)\b|\b(xs|s|m|l|xl|xxl)\b/i.test(nm||"");
+const isGlove=nm=>/rukavic/.test(norm(nm||""))&&!/\b(6|7|8|9|10|11|12|10[.,]5)\b|vel\.\s?\d|\b(xs|s|m|l|xl|xxl)\b/i.test(nm||"");
 function chipKind(key,nm){const vr=varOf(key);if(vr)return vr.some(y=>!/^P\d+$/i.test(y[0]))?"hrubosti":"zrnitosti";if(isGlove(nm))return "velikosti";return ABR_RE.test(norm(nm||""))?"zrnitosti":""}
 function gritChips(key,nm){
   const vr=varOf(key);
