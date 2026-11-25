@@ -135,10 +135,11 @@ h1 .logo{width:30px;height:30px;border-radius:6px;background:#fff;flex:none}
 .supgrid{display:flex;flex-wrap:wrap;gap:6px}
 .supgrid .chip{font-size:15px;padding:10px 12px}
 .supgrid .chip small{font-size:11px;color:inherit;opacity:.7;margin-left:4px}
-.ohead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.ohead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:nowrap}
 .ohbtn{background:none;border:0;color:inherit;font:inherit;width:100%;cursor:pointer;padding:2px 0;text-align:left}
 .ohbtn .chev{font:700 20px/1 var(--f-ui);color:var(--muted);width:18px;text-align:center}
 .ohead h3{margin:0;font:700 20px/1.1 var(--f-label);letter-spacing:.04em;text-transform:uppercase}
+.onote{display:block;margin-top:4px;font:600 13px/1.3 var(--f-ui);color:var(--warn);text-transform:none;letter-spacing:0}
 .oacts{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 10px}
 .oacts .btn{padding:10px 12px;font-size:14px}
 .li.sel{background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
@@ -863,9 +864,9 @@ function viewOrdList(){
     const g=rows.filter(r=>r[3]===n).sort((a,b)=>a[1]-b[1]); if(!g.length)continue; any=true;
     const si=supInfo(n), how=si[1];
     const op=S.oopen.has(n);
-    h+=`<section class="panel"><button type="button" class="ohead ohbtn" data-otog="${esc(n)}" aria-expanded="${op}"><h3>${esc(n)}</h3><span class="row" style="gap:6px"><span class="stag">${g.length} pol.</span><span class="stag">${esc(how)}</span><span class="chev">${op?"▾":"▸"}</span></span></button>`;
+    h+=`<section class="panel"><button type="button" class="ohead ohbtn" data-otog="${esc(n)}" aria-expanded="${op}"><span style="min-width:0;flex:1"><h3>${esc(n)}</h3>${si[3]&&S.ofilt!=="obj"?`<span class="onote">${esc(si[3])}</span>`:""}</span><span class="row" style="gap:6px"><span class="stag">${g.length} pol.</span><span class="stag">${esc(how)}</span><span class="chev">${op?"▾":"▸"}</span></span></button>`;
     if(!op){h+=`</section>`;continue}
-    h+=`${si[3]?`<div class="hint">${esc(si[3])}</div>`:""}
+    h+=`
       <div class="oacts">
         ${S.ofilt==="zap"&&n==="Viton"?`<button class="btn primary" type="button" data-supact="vit" data-sup="${esc(n)}"${S.vit&&S.vit.busy?" disabled":""}>Připravit objednávku ve Vitonu</button>`:""}
         ${S.ofilt==="zap"?(how==="Cézar"?`<button class="btn" type="button" data-supact="csv" data-sup="${esc(n)}">Uložit pro Cézar</button>`:`<button class="btn" type="button" data-supact="copy" data-sup="${esc(n)}">Kopírovat seznam</button>`)
@@ -1930,6 +1931,16 @@ let ovT,liveT;document.addEventListener("input",e=>{
 document.addEventListener("visibilitychange",()=>{if(document.hidden){if(S.cam)camStop()}else if(API){poll();flush()}});
 window.addEventListener("online",()=>{flush();poll()});
 
+/* rozkliknuté objednávky se po 2 minutách bez dotyku samy sbalí, ať je seznam přehledný */
+const OSBAL_MS=120000; S.oAct=Date.now();
+["click","input","keydown","touchstart","scroll"].forEach(ev=>document.addEventListener(ev,()=>{S.oAct=Date.now()},{passive:true,capture:true}));
+setInterval(()=>{
+  if(!S.oopen.size||Date.now()-S.oAct<OSBAL_MS||(S.vit&&(S.vit.busy||S.vit.need)))return;
+  const a=document.activeElement;if(a&&/INPUT|TEXTAREA/.test(a.tagName)&&a.closest("#main"))return;
+  S.oopen.clear();S.osel=null;S.oconf=null;if(S.vit&&S.vit.res)S.vit=null;
+  if(S.module==="objednavky"&&S.oview==="list"){render();window.scrollTo(0,0)}
+},15000);
+document.addEventListener("visibilitychange",()=>{if(document.hidden)S.oHid=Date.now();else if(S.oHid&&Date.now()-S.oHid>OSBAL_MS){S.oAct=0}});
 let started=false;
 async function start(){
   render(); if(!API||started)return; started=true;
