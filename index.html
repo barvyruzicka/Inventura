@@ -829,8 +829,16 @@ function vksTxt(cis,v){
 function balKs(r){const k=r[8]==="bal"?kpcFor(r[4],r[9]):0;return k?" = "+fmt(Math.round(r[7]*k*1000)/1000)+" ks":""}
 const ABR_RE=/brus|smirdex|smirek|zrnit|mirka|abraz|rouno/;
 const GRITS=["P60","P80","P100","P120","P150","P180","P220","P240","P320","P400","P500","P600","P800","P1000","P1200","P1500","P2000","P3000"];
+/* rukavice: velikosti, jen u karet, které velikost nemají už v názvu (PROSOFT 8 apod. jsou samostatné karty) */
+const GLOVE_SIZES=["6 / XS","7 / S","8 / M","9 / L","10 / XL","11 / XXL"];
+const isGlove=nm=>/rukavic/.test(norm(nm||""))&&!/\b(6|7|8|9|10|11|10[.,]5)\b|\b(xs|s|m|l|xl|xxl)\b/i.test(nm||"");
+function chipKind(key,nm){const vr=varOf(key);if(vr)return vr.some(y=>!/^P\d+$/i.test(y[0]))?"hrubosti":"zrnitosti";if(isGlove(nm))return "velikosti";return ABR_RE.test(norm(nm||""))?"zrnitosti":""}
 function gritChips(key,nm){
   const vr=varOf(key);
+  if(!vr&&isGlove(nm)){const cnt=new Map(),sz=g=>vkey(g.split("/")[0]),
+      f=n=>GLOVE_SIZES.find(g=>{const k=vkey(n);return k===vkey(g)||k===sz(g)||k===vkey(g.split("/")[1]||"")});
+    S.ord.rows.filter(x=>x[4]===key).forEach(x=>{const g=f(x[9]);if(g)cnt.set(g,(cnt.get(g)||0)+1)});
+    return [...[...cnt.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0]),...GLOVE_SIZES.filter(g=>!cnt.has(g))]}
   if(!vr&&!ABR_RE.test(norm(nm||"")))return [];
   const cnt=new Map();
   if(vr){S.ord.rows.filter(x=>x[4]===key).forEach(x=>{const m=varMatch(vr,x[9]);if(m)cnt.set(m[0],(cnt.get(m[0])||0)+1)});
@@ -878,7 +886,7 @@ function orderCard(key){
       :`<div class="row" style="justify-content:space-between"><span>Dodavatel: <b>${esc(S.osup)}</b>${!free&&S.ord.map[key]&&S.ord.map[key]!==S.osup?` <span class="hint">(naposledy ${esc(S.ord.map[key])})</span>`:""}</span><button type="button" class="linkbtn" id="ochange">změnit</button></div>`}
     ${nEx?`<div class="warnbox">U <b>${esc(S.osup)}</b> už je zapsáno – můžete upravit počty, odebrat nebo přidat další variantu.</div>`:""}
     <form id="ordForm" style="display:flex;flex-direction:column;gap:8px" autocomplete="off">
-      ${grits.length?`<div><div class="hint" style="margin-bottom:4px">Rychlá volba ${varOf(key)&&varOf(key).some(y=>!/^P\d+$/i.test(y[0]))?"hrubosti":"zrnitosti"}${S.ord.rows.some(x=>x[4]===key)?" (nejčastější první)":""}:</div><div class="chips gchips">${grits.map(g=>`<button type="button" class="chip" data-vgrit="${esc(g)}" aria-pressed="${used.has(vkey(g))}"${varOf(key)?` title="balení ${esc((varOf(key).find(y=>y[0]===g)||[])[1]||"?")} ks"`:""}>${esc(g)}</button>`).join("")}</div></div>`:""}
+      ${grits.length?`<div><div class="hint" style="margin-bottom:4px">Rychlá volba ${chipKind(key,r?r[0]:"")}${S.ord.rows.some(x=>x[4]===key)?" (nejčastější první)":""}:</div><div class="chips gchips">${grits.map(g=>`<button type="button" class="chip" data-vgrit="${esc(g)}" aria-pressed="${used.has(vkey(g))}"${varOf(key)?` title="balení ${esc((varOf(key).find(y=>y[0]===g)||[])[1]||"?")} ks"`:""}>${esc(g)}</button>`).join("")}</div></div>`:""}
       <div class="vlist">${S.ovars.map(vrow).join("")}</div>
       <button type="button" class="btn" id="vadd">+ další varianta</button>
       <button class="btn primary big" type="submit">${nEx?"Uložit vše":nNew>1?`Zapsat ${nNew} ${nNew<5?"varianty":"variant"}`:"Zapsat do objednávky"}</button>
