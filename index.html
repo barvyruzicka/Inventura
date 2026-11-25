@@ -822,7 +822,7 @@ function vksTxt(cis,v){
   return (k?`= ${fmt(Math.round((parseQ(v.qty)||0)*k*1000)/1000)} ks (bal. po ${fmt(k)})`:"počet kusů v balení neznám – zkontrolujte")+(miss?` · ${g} v ceníku Smirdex není`:"");
 }
 function balKs(r){const k=r[8]==="bal"?kpcFor(r[4],r[9]):0;return k?" = "+fmt(Math.round(r[7]*k*1000)/1000)+" ks":""}
-const ABR_RE=/brus|smirdex|zrnit|kotouc|mirka|scotch|abraz|rouno|\bp\s?\d{2,4}\b/;
+const ABR_RE=/brus|smirdex|smirek|zrnit|mirka|abraz|rouno/;
 const GRITS=["P60","P80","P100","P120","P150","P180","P220","P240","P320","P400","P500","P600","P800","P1000","P1200","P1500","P2000","P3000"];
 function gritChips(key,nm){
   const vr=varOf(key);
