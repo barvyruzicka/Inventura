@@ -80,7 +80,7 @@ input:focus-visible,button:focus-visible{outline:3px solid color-mix(in srgb,var
 .vrow .vq input{text-align:center;font:700 20px/1 var(--f-label);font-variant-numeric:tabular-nums;padding-left:2px;padding-right:2px}
 .vrow .vu{min-width:58px;justify-content:center}
 .vrow .vx{min-width:44px;padding-left:0;padding-right:0}
-.vrow .vks{grid-column:1/-1;font-size:13px;color:var(--muted)}
+.vrow .vks{grid-column:1/-1;font-size:13px;color:var(--muted)}.vrow .vks:empty{display:none}
 .vrow.vdel{opacity:.55}.vrow.vdel input{text-decoration:line-through}
 .gchips .chip{min-width:56px;justify-content:center}
 .qty button{font:700 24px/1 var(--f-ui)}
@@ -765,7 +765,7 @@ let ordBusy=false;
 async function loadOrders(){
   if(!API||!S.name||ordBusy)return; ordBusy=true;
   try{const r=await apiGet({a:"ord"});
-    if(r.ok){S.ord={sup:r.sup||[],rows:r.rows||[],map:r.map||{},loaded:true};connOk();
+    if(r.ok){S.ord={sup:r.sup||[],rows:r.rows||[],map:r.map||{},vary:r.vary||{},varSup:r.varSup||{},loaded:true};connOk();
       if(S.module==="objednavky"||S.module==="home"){const a=document.activeElement;if(!(a&&a.tagName==="INPUT"&&a.closest("#main")))render();else renderLight()}}
     else connFail(r);
   }catch(e){connFail()}
@@ -811,14 +811,26 @@ function viewOrdAdd(){
 function ordLi(i){const r=S.catalog[i];const open=S.ord.rows.filter(x=>x[4]===r[2]&&x[10]==="Zapsáno");
   return `<button type="button" class="li" data-pick="${esc(r[2])}"><span class="n">${esc(r[0])}</span><span class="q">${fmt(+r[3]||0)}</span><span class="s">${esc(r[2])}${r[1]?" · "+esc(r[1]):""}${cenaTxt(r)}${open.length?` · <span class="stag ${OST[open[0][10]]}">${esc(open[0][10])}</span>`:""}</span></button>`}
 function kpcOf(cis){const r=cis?itemRow(cis):null;const n=r?+r[7]:0;return n>1?n:0}
-function balKs(r){const k=r[8]==="bal"?kpcOf(r[4]):0;return k?" = "+fmt(Math.round(r[7]*k*1000)/1000)+" ks":""}
+/* zrnitost z poznámky („P120“, „120“) a ks v balení podle ceníku dodavatele (list Brusivo varianty), jinak z karty v Cézaru */
+function gritOf(note){const m=String(note||"").toUpperCase().match(/\bP?\s?(\d{2,4})\b/);return m?"P"+m[1]:""}
+function varOf(cis){return cis&&S.ord.vary?S.ord.vary[cis]:null}
+function kpcFor(cis,note){const v=varOf(cis),g=gritOf(note);if(v&&g){const x=v.find(y=>y[0]===g);if(x&&+x[1]>1)return +x[1]}return kpcOf(cis)}
+function vksTxt(cis,v){
+  const vr=varOf(cis),g=gritOf(v.note),miss=vr&&g&&!vr.some(y=>y[0]===g);
+  if(v.unit!=="bal")return miss?`${g} v ceníku dodavatele není – zkontrolujte`:"";
+  const k=kpcFor(cis,v.note);
+  return (k?`= ${fmt(Math.round((parseQ(v.qty)||0)*k*1000)/1000)} ks (bal. po ${fmt(k)})`:"počet kusů v balení neznám – zkontrolujte")+(miss?` · ${g} v ceníku dodavatele není`:"");
+}
+function balKs(r){const k=r[8]==="bal"?kpcFor(r[4],r[9]):0;return k?" = "+fmt(Math.round(r[7]*k*1000)/1000)+" ks":""}
 const ABR_RE=/brus|smirdex|zrnit|kotouc|mirka|scotch|abraz|rouno|\bp\s?\d{2,4}\b/;
 const GRITS=["P60","P80","P100","P120","P150","P180","P220","P240","P320","P400","P500","P600","P800","P1000","P1200","P1500","P2000","P3000"];
 function gritChips(key,nm){
-  if(!ABR_RE.test(norm(nm||"")))return [];
+  const vr=varOf(key);
+  if(!vr&&!ABR_RE.test(norm(nm||"")))return [];
   const cnt=new Map();
   S.ord.rows.filter(x=>x[4]===key).forEach(x=>{(String(x[9]||"").toUpperCase().match(/\bP?\s?\d{2,4}\b/g)||[]).forEach(t=>{const g="P"+t.replace(/\D/g,"");cnt.set(g,(cnt.get(g)||0)+1)})});
   const hist=[...cnt.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+  if(vr){const all=vr.map(y=>y[0]);return [...hist.filter(g=>all.includes(g)),...all.filter(g=>!cnt.has(g))]}
   return [...hist,...GRITS.filter(g=>!cnt.has(g))].slice(0,18);
 }
 /* varianty jednoho zboží u jednoho dodavatele: [{id|null, note, qty, unit, del, o:{původní}}] */
@@ -848,19 +860,19 @@ function orderCard(key){
       <div class="vq"><button type="button" class="btn" data-vstep="${i}|-1" aria-label="Méně" ${v.del?"disabled":""}>−</button><input type="text" inputmode="decimal" data-vq="${i}" value="${esc(v.qty)}" aria-label="Počet" ${v.del?"disabled":""}><button type="button" class="btn" data-vstep="${i}|1" aria-label="Více" ${v.del?"disabled":""}>+</button></div>
       <button type="button" class="chip vu" data-vunit="${i}" aria-pressed="${v.unit==="bal"}" ${v.del?"disabled":""}>${v.unit==="bal"?"bal.":"ks"}</button>
       ${v.del?`<button type="button" class="linkbtn" data-vundel="${i}">vrátit</button>`:`<button type="button" class="btn vx" data-vdel="${i}" aria-label="Odebrat variantu">✕</button>`}
-      ${v.unit==="bal"&&!v.del?`<span class="vks">${kpc?"= "+fmt(Math.round((parseQ(v.qty)||0)*kpc*1000)/1000)+" ks":"počet kusů v balení Cézar nezná – zkontrolujte"}</span>`:""}
+      ${!v.del&&!free?`<span class="vks" data-vks="${i}">${vksTxt(key,v)}</span>`:""}
       ${v.id?`<span class="vks">${v.del?"bude zrušeno":"už zapsáno"}</span>`:""}
     </div>`;
   return `<section class="panel flash" id="card">
     ${free?`<h2>Zboží bez kódu</h2><input type="text" id="ofree" placeholder="Název zboží (např. S2000 0110 7 l)" aria-label="Název zboží" value="${esc(S.ofreeNm||"")}">`
-      :`<div><p class="item-name">${esc(r?r[0]:key)}</p><div class="code">${esc(key)}${r&&r[1]?" · EAN "+esc(r[1]):""}${r?esc(catInfo(r,true)):" · v Cézaru 0"}${r&&r[6]?" · dod. "+esc(r[6]):""}${kpc?` · <b>1 bal. = ${fmt(kpc)} ks</b>`:""}</div></div>`}
+      :`<div><p class="item-name">${esc(r?r[0]:key)}</p><div class="code">${esc(key)}${r&&r[1]?" · EAN "+esc(r[1]):""}${r?esc(catInfo(r,true)):" · v Cézaru 0"}${r&&r[6]?" · dod. "+esc(r[6]):""}${varOf(key)?` · <b>balení podle zrnitosti (ceník ${esc(S.ord.varSup&&S.ord.varSup[key]||"dodavatele")})</b>`:kpc?` · <b>1 bal. = ${fmt(kpc)} ks</b>`:""}</div></div>`}
     ${open.length?`<div class="warnbox">Zapsáno i u jiného dodavatele: ${open.map(o=>`<b>${esc(o[3])}</b> ${fmt(o[7])} ${esc(o[8])}${o[9]?" ("+esc(o[9])+")":""} · ${esc(o[2])} ${dmy(o[1])}`).join("; ")}</div>`:""}
     ${showSup?`<div><h2 style="margin-bottom:8px">Dodavatel${!free&&S.ord.map[key]?` <span class="hint" style="text-transform:none;letter-spacing:0">(naposledy ${esc(S.ord.map[key])})</span>`:""}</h2>
       <div class="supgrid">${sups.map(x=>`<button type="button" class="chip" data-osup="${esc(x[0])}" aria-pressed="${S.osup===x[0]}">${esc(x[0])}<small>${esc(x[1])}</small></button>`).join("")}</div></div>`
       :`<div class="row" style="justify-content:space-between"><span>Dodavatel: <b>${esc(S.osup)}</b>${!free&&S.ord.map[key]&&S.ord.map[key]!==S.osup?` <span class="hint">(naposledy ${esc(S.ord.map[key])})</span>`:""}</span><button type="button" class="linkbtn" id="ochange">změnit</button></div>`}
     ${nEx?`<div class="warnbox">U <b>${esc(S.osup)}</b> už je zapsáno – můžete upravit počty, odebrat nebo přidat další variantu.</div>`:""}
     <form id="ordForm" style="display:flex;flex-direction:column;gap:8px" autocomplete="off">
-      ${grits.length?`<div><div class="hint" style="margin-bottom:4px">Rychlá volba zrnitosti${S.ord.rows.some(x=>x[4]===key)?" (nejčastější první)":""}:</div><div class="chips gchips">${grits.map(g=>`<button type="button" class="chip" data-vgrit="${g}" aria-pressed="${used.has(g)}">${g}</button>`).join("")}</div></div>`:""}
+      ${grits.length?`<div><div class="hint" style="margin-bottom:4px">Rychlá volba zrnitosti${S.ord.rows.some(x=>x[4]===key)?" (nejčastější první)":""}:</div><div class="chips gchips">${grits.map(g=>`<button type="button" class="chip" data-vgrit="${g}" aria-pressed="${used.has(g)}"${varOf(key)?` title="balení ${esc((varOf(key).find(y=>y[0]===g)||[])[1]||"?")} ks"`:""}>${g}</button>`).join("")}</div></div>`:""}
       <div class="vlist">${S.ovars.map(vrow).join("")}</div>
       <button type="button" class="btn" id="vadd">+ další varianta</button>
       <button class="btn primary big" type="submit">${nEx?"Uložit vše":nNew>1?`Zapsat ${nNew} ${nNew<5?"varianty":"variant"}`:"Zapsat do objednávky"}</button>
@@ -1011,9 +1023,9 @@ async function supAction(act,sup,b){
     ordSet(g.map(r=>r[0]),{stav:act==="allobj"?"Objednáno":"Dodáno"},`${sup}: ${g.length} pol. ${act==="allobj"?"objednáno":"dodáno"}`);return;
   }
   if(act==="csv"){
-    const ok=g.filter(r=>r[4]), bal=ok.filter(r=>r[8]==="bal"&&!kpcOf(r[4])), skip=g.length-ok.length;
+    const ok=g.filter(r=>r[4]), bal=ok.filter(r=>r[8]==="bal"&&!kpcFor(r[4],r[9])), skip=g.length-ok.length;
     /* číslo zboží;množství;poznámka (zrnitost, velikost…) – v Cézaru import 04 „Objednávky a dodáky - import (Tukan)“ (UTF-8, 3 údaje) */
-    const lines=ok.map(r=>r[4]+";"+String(Math.round(r[7]*(r[8]==="bal"?kpcOf(r[4])||1:1)*1000)/1000)+";"+String(r[9]||"").replace(/[;\r\n\t"]+/g," ").trim().slice(0,200));
+    const lines=ok.map(r=>r[4]+";"+String(Math.round(r[7]*(r[8]==="bal"?kpcFor(r[4],r[9])||1:1)*1000)/1000)+";"+String(r[9]||"").replace(/[;\r\n\t"]+/g," ").trim().slice(0,200));
     const d=new Date(),p2=n=>String(n).padStart(2,"0"),name=`Objednavka-${sup.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9]+/g,"_")}-${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}.csv`;
     if(!lines.length){toast("Žádná položka s číslem zboží");return}
     const text=lines.join("\r\n")+"\r\n", info=(bal.length?` · ${bal.length} v baleních bez počtu ks v Cézaru – zkontrolujte počet`:"")+(skip?` · ${skip} bez kódu zadejte ručně`:"");
@@ -1887,7 +1899,7 @@ document.addEventListener("click",async e=>{
   if(b.dataset.ofix){S.ofix=b.dataset.ofix;S.osupFor=null;render();window.scrollTo(0,0);return}
   if(b.dataset.oview){if(S.cam&&b.dataset.oview!=="add")camStop();S.oview=b.dataset.oview;S.osel=null;S.oconf=null;render();window.scrollTo(0,0);return}
   if(b.dataset.osup){ovarsSync();S.osup=b.dataset.osup;render();return}
-  if(b.dataset.vstep){ovarsSync();const [i,d]=b.dataset.vstep.split("|");const v=S.ovars&&S.ovars[+i];if(!v)return;v.qty=fmt(Math.max(0,(parseQ(v.qty)||0)+ +d));const el=document.querySelector(`[data-vq="${i}"]`);if(el)el.value=v.qty;if(v.unit==="bal")render();return}
+  if(b.dataset.vstep){ovarsSync();const [i,d]=b.dataset.vstep.split("|");const v=S.ovars&&S.ovars[+i];if(!v)return;v.qty=fmt(Math.max(0,(parseQ(v.qty)||0)+ +d));const el=document.querySelector(`[data-vq="${i}"]`);if(el)el.value=v.qty;const sp=document.querySelector(`[data-vks="${i}"]`);if(sp&&S.current)sp.textContent=vksTxt(S.current,v);return}
   if(b.dataset.vunit!=null){ovarsSync();const v=S.ovars&&S.ovars[+b.dataset.vunit];if(v){v.unit=v.unit==="bal"?"ks":"bal";render()}return}
   if(b.dataset.vdel!=null){ovarsSync();const i=+b.dataset.vdel,v=S.ovars[i];if(!v)return;if(v.id)v.del=true;else S.ovars.splice(i,1);if(!S.ovars.length)S.ovars.push({id:null,note:"",qty:"1",unit:"ks",del:false});render();return}
   if(b.dataset.vundel!=null){ovarsSync();const v=S.ovars[+b.dataset.vundel];if(v)v.del=false;render();return}
@@ -1981,7 +1993,7 @@ document.addEventListener("change",e=>{if(e.target.id==="fast"){S.fast=e.target.
   if(e.target.id==="ddat"){const d=dlDraft();d.prevzal=$("#dprev")?.value.trim()||"";d.pozn=$("#dpozn")?.value.trim()||"";d.datum=e.target.value;dlSaveDraft();render()}
   });
 let ovT,liveT;document.addEventListener("input",e=>{
-  if(e.target.dataset&&(e.target.dataset.vn!=null||e.target.dataset.vq!=null||e.target.id==="ofree")){ovarsSync();if(e.target.dataset.vq!=null){const v=S.ovars&&S.ovars[+e.target.dataset.vq];const sp=e.target.closest(".vrow")?.querySelector(".vks");const k=S.current?kpcOf(S.current):0;if(v&&v.unit==="bal"&&k&&sp)sp.textContent="= "+fmt(Math.round((parseQ(v.qty)||0)*k*1000)/1000)+" ks"}return}
+  if(e.target.dataset&&(e.target.dataset.vn!=null||e.target.dataset.vq!=null||e.target.id==="ofree")){ovarsSync();const i=e.target.dataset.vq??e.target.dataset.vn;if(i!=null&&S.current&&S.current!=="__free__"){const v=S.ovars&&S.ovars[+i];const sp=document.querySelector(`[data-vks="${i}"]`);if(v&&sp)sp.textContent=vksTxt(S.current,v)}return}
   if(e.target.id==="code"&&(S.module==="dodaci"||S.module==="objednavky"||S.module==="inventura")){
     clearTimeout(liveT);const v=e.target.value.trim();
     liveT=setTimeout(()=>{
