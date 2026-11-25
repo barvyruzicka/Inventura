@@ -717,6 +717,10 @@ const SM_JMENO={"Petra":"Peťa"};
 const smKdo=t=>{const i=t.indexOf(" – ");return i>0?t.slice(0,i):t};
 const smJa=t=>norm(smKdo(t))===norm(SM_JMENO[S.name]||S.name);
 function smLine(t){const i=t.indexOf(" – ");return i>0?`<b>${esc(t.slice(0,i))}</b> <span class="hint">${esc(t.slice(i+3))}</span>`:esc(t)}
+/* stejné směny na jeden řádek: [{sm:"ranní 7–13", lidi:["Dáša","Eva"], ja:bool}] */
+function smGroups(list){const m=new Map();list.forEach(t=>{const i=t.indexOf(" – "),sm=i>0?t.slice(i+3):"",kdo=i>0?t.slice(0,i):t;
+  if(!m.has(sm))m.set(sm,{sm,lidi:[],ja:false});const g=m.get(sm);g.lidi.push(kdo);if(smJa(t))g.ja=true});return [...m.values()]}
+const smLidi=g=>g.lidi.map(k=>smJa(k+" – ")?`<b>${esc(k)}</b> <span class="stag obj">já</span>`:`<b>${esc(k)}</b>`).join(", ");
 function smenyPanel(){
   const sm=S.smeny; if(!sm)return "";
   const dnes=sm.dny.find(d=>d.d===sm.dnes), dalsi=sm.dny.filter(d=>d.d>sm.dnes&&(new Date(d.d)-new Date(sm.dnes))<7*864e5);
@@ -727,9 +731,9 @@ function smenyPanel(){
       <p class="hint" style="margin:0">Na ${sm.dny.length>8?"5 týdnů":"týden"} dopředu podle kalendáře Prodejna BL.</p>`
       :`<p class="hint" style="margin:0">Na nejbližší dny pro vás v kalendáři Prodejna BL žádnou směnu nevidím${SM_JMENO[S.name]||S.name?" (hledám jméno „"+esc(SM_JMENO[S.name]||S.name)+"“)":""}.</p>`}</section>`;
   return `<section class="panel"><div class="row" style="justify-content:space-between"><h2>Dnes v obchodě</h2><span class="row" style="gap:12px"><button type="button" class="linkbtn" data-smmoje="1">moje směny</button>${dalsi.length?`<button type="button" class="linkbtn" data-smtyd="1">${S.smTyd?"skrýt týden":"celý týden"}</button>`:""}</span></div>
-    ${dnes&&dnes.s.length?`<div class="list">${dnes.s.map(t=>`<div class="li" style="cursor:default;grid-template-columns:1fr${smJa(t)?";background:color-mix(in srgb,var(--accent) 8%,var(--surface))":""}"><span class="n">${smLine(t)}${smJa(t)?' <span class="stag obj">já</span>':""}</span></div>`).join("")}</div>`
+    ${dnes&&dnes.s.length?`<div class="list">${smGroups(dnes.s).map(g=>`<div class="li" style="cursor:default;grid-template-columns:1fr${g.ja?";background:color-mix(in srgb,var(--accent) 8%,var(--surface))":""}"><span class="n">${g.sm?`<span class="hint">${esc(g.sm)}:</span> `:""}${smLidi(g)}</span></div>`).join("")}</div>`
       :`<p class="hint" style="margin:0">${dalsi.length?"Dnes podle kalendáře nikdo nemá směnu.":"V kalendáři Prodejna BL zatím nejsou na tento týden žádné směny."}</p>`}
-    ${S.smTyd?dalsi.map(d=>`<div style="padding-top:6px"><div class="hint" style="text-transform:capitalize;font-weight:700">${den(d.d)}</div>${d.s.map(t=>`<div style="padding:2px 0">${smLine(t)}</div>`).join("")}</div>`).join(""):""}
+    ${S.smTyd?dalsi.map(d=>`<div style="padding-top:6px"><div class="hint" style="text-transform:capitalize;font-weight:700">${den(d.d)}</div>${smGroups(d.s).map(g=>`<div style="padding:2px 0">${g.sm?`<span class="hint">${esc(g.sm)}:</span> `:""}${smLidi(g)}</div>`).join("")}</div>`).join(""):""}
   </section>`;
 }
 function viewHome(){
