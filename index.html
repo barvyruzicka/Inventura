@@ -953,12 +953,14 @@ function viewOrdList(){
     h+=`
       <div class="oacts">
         ${S.ofilt==="zap"&&n==="Viton"?`<button class="btn primary" type="button" data-supact="vit" data-sup="${esc(n)}"${S.vit&&S.vit.busy?" disabled":""}>Připravit objednávku ve Vitonu</button>`:""}
+        ${S.ofilt==="zap"&&n==="Sokrates"?`<button class="btn primary" type="button" data-supact="sok" data-sup="${esc(n)}"${S.sok&&S.sok.busy?" disabled":""}>Připravit košík u Sokratesu</button>`:""}
         ${S.ofilt==="zap"?(how==="Cézar"?`<button class="btn" type="button" data-supact="csv" data-sup="${esc(n)}">Uložit pro Cézar</button>`:`<button class="btn" type="button" data-supact="copy" data-sup="${esc(n)}">Kopírovat seznam</button>`)
           +(si[2]?`<a class="btn" href="${esc(si[2])}" target="_blank" rel="noopener">Otevřít B2B ↗</a>`:"")
           +`<button class="btn" type="button" data-supact="allobj" data-sup="${esc(n)}">${S.oconf==="allobj|"+n?"Opravdu? Klepněte znovu":"Vše objednáno"}</button>`:""}
         ${S.ofilt!=="vse"?`<button class="btn danger" type="button" data-supact="alldel" data-sup="${esc(n)}">${S.oconf==="alldel|"+n?`Opravdu smazat ${g.length} pol.?`:"Smazat celou objednávku"}</button>`:""}
       </div>
       ${n==="Viton"&&S.vit?vitPanel():""}
+      ${n==="Sokrates"&&S.sok?sokPanel():""}
       <div class="list">${g.map(r=>ordRow(r)).join("")}</div></section>`;
   }
   if(!any)h+=`<section class="panel"><p class="hint" style="margin:0">${S.ofilt==="zap"?"Nic nečeká na objednání. Nové položky zapíšete v záložce Zapsat.":"Žádné položky."}</p></section>`;
@@ -1028,8 +1030,48 @@ function vitPanel(){
     <div class="oacts"><a class="btn primary" href="${esc(r.url)}" target="_blank" rel="noopener">Otevřít ve Vitonu ↗</a><button class="btn" type="button" data-vitclose="1">Zavřít</button></div>
     <p class="hint" style="margin:0">Když vás Viton při otevření odhlásí, přihlaste se znovu – objednávka tam zůstane mezi rozpracovanými.</p>`;
 }
+/* ---- Sokrates: Tukan naplní KOŠÍK v e-shopu barvy-sokrates.eu (objednávku odešle člověk v e-shopu) ---- */
+const SOK_ERR={busy:"Košík u Sokratesu právě připravuje někdo jiný. Zkuste to za minutu.",prazdne:"U Sokratesu teď nic nečeká na objednání."};
+async function sokRun(){
+  if(S.sok&&S.sok.busy)return;
+  const pick=(S.sok&&S.sok.pick)||{}, skip=Object.keys((S.sok&&S.sok.skip)||{});
+  const kpc={};S.ord.rows.filter(r=>r[3]==="Sokrates"&&r[10]==="Zapsáno"&&r[8]==="bal").forEach(r=>{const k=kpcFor(r[4],r[9]);if(k)kpc[r[0]]=k});
+  S.sok={busy:true};S.oopen.add("Sokrates");render();
+  let r;
+  try{r=await apiPost({a:"sok_prep",name:S.name,pin:S.pin,pick,skip,kpc})}
+  catch(e){S.sok={err:"Bez spojení s tabulkou. Zkontrolujte internet a zkuste znovu."};render();return}
+  if(!r.ok){if(r.err==="pin"){S.sok=null;logout("PIN už neplatí. Přihlaste se znovu.");return}
+    S.sok={err:SOK_ERR[r.err]||("Nepodařilo se: "+(r.msg||r.err||"neznámá chyba"))};render();return}
+  S.sok=r.need?{need:r.need,pick:Object.fromEntries(r.need.filter(x=>x.pid).map(x=>[x.id,{p:x.pid,g:Object.assign({},x.have)}])),skip:{}}:{res:r};
+  render();if(r.items)toast("Košík u Sokratesu je připravený – zkontrolujte ho a odešlete",6000);
+}
+function sokPanel(){
+  const v=S.sok;
+  if(v.busy)return `<div class="warnbox">Připravuji košík u Sokratesu… trvá to asi minutu. Nechte aplikaci otevřenou.</div>`;
+  if(v.err)return `<div class="warnbox">${esc(v.err)}</div><div class="oacts"><button class="btn" type="button" data-supact="sok" data-sup="Sokrates">Zkusit znovu</button><button class="btn" type="button" data-sokclose="1">Zavřít</button></div>`;
+  if(v.need){
+    const done=x=>v.skip[x.id]||(v.pick[x.id]&&v.pick[x.id].p&&x.groups.every(g=>v.pick[x.id].g[g.g]));
+    const ok=v.need.every(done);
+    return `<div class="warnbox">U těchto položek si nejsem jistý, co přesně u Sokratesu je. Vyberte správné (příště si to budu pamatovat), nebo položku vynechte:</div>
+      ${v.need.map(x=>{const pk=v.pick[x.id]||{};return `<div style="padding:6px 0;border-top:1px solid var(--line)"><b>${esc(x.nm)}</b> <span class="hint">${fmt(x.q)} ${x.unit==="bal"?"bal.":"ks"}${x.pname?" · "+esc(x.pname):""}</span>
+        ${x.cand.length?`<div class="chips" style="margin-top:6px">${x.cand.map(c=>`<button type="button" class="chip" data-sokpick="${esc(x.id)}|${c[0]}" aria-pressed="${String(pk.p)===String(c[0])}">${esc(c[1])}</button>`).join("")}</div>`:""}
+        ${x.groups.map(g=>`<div class="hint" style="margin:6px 0 0">${esc(g.l)}:</div><div class="chips">${g.v.map(o=>`<button type="button" class="chip" data-sokg="${esc(x.id)}|${g.g}|${o[0]}" aria-pressed="${String((pk.g||{})[g.g])===String(o[0])}">${esc(o[1])}</button>`).join("")}</div>`).join("")}
+        <div class="chips" style="margin-top:6px"><button type="button" class="chip" data-sokskip="${esc(x.id)}" aria-pressed="${!!v.skip[x.id]}">Vynechat</button></div>
+        ${!x.cand.length&&!x.groups.length?`<p class="hint" style="margin:4px 0 0">Podobné zboží jsem nenašel – vynechte ho a doplňte u Sokratesu ručně.</p>`:""}</div>`}).join("")}
+      <div class="oacts"><button class="btn primary" type="button" data-supact="sok" data-sup="Sokrates"${ok?"":" disabled"}>Pokračovat</button><button class="btn" type="button" data-sokclose="1">Zrušit</button></div>`;
+  }
+  const r=v.res, bad=r.items.filter(x=>!x.ok);
+  return `<div class="warnbox"><b>Košík je připravený u Sokratesu, ale objednávka ještě NENÍ odeslaná.</b> Otevřete košík (přihlášení je v e-shopu), zkontrolujte ho a dokončete objednávku. Potom tady dejte <b>Vše objednáno</b>.</div>
+    <div class="list">${r.items.map(x=>`<div class="li" style="cursor:default"><span class="n">${esc(x.vn||x.nm)}</span><span class="q">${x.ok?fmt(x.ks)+" ks":"–"}</span>
+      <span class="s">${x.ok?(x.unit==="bal"?fmt(x.q)+" bal. · ":"")+esc(x.cena||""):""}${x.warn?`${x.ok?" · ":""}<b class="${x.ok?"":"neg"}">${esc(x.warn)}</b>`:""}</span></div>`).join("")}
+    ${(r.navic||[]).map(x=>`<div class="li" style="cursor:default"><span class="n">${esc(x.n)}</span><span class="q">${fmt(x.ks)} ks</span><span class="s">už bylo v košíku · ${esc(x.cena||"")}</span></div>`).join("")}</div>
+    <p style="margin:6px 0 0">Celkem bez DPH: <b>${esc(r.celkem||"?")}</b>${r.doprava?` · doprava ${esc(r.doprava)}`:""}${r.skipped?` · vynecháno ${r.skipped} pol.`:""}</p>
+    ${bad.length?`<div class="warnbox">${bad.length} pol. se nepodařilo vložit – doplňte je v e-shopu ručně.</div>`:""}
+    <div class="oacts"><a class="btn primary" href="${esc(r.url)}" target="_blank" rel="noopener">Otevřít košík u Sokratesu ↗</a><button class="btn" type="button" data-sokclose="1">Zavřít</button></div>`;
+}
 async function supAction(act,sup,b){
   if(act==="vit"){vitRun();return}
+  if(act==="sok"){sokRun();return}
   const g=S.ord.rows.filter(r=>r[3]===sup&&ordVis(r)&&r[10]===(act==="alldel"&&S.ofilt==="obj"?"Objednáno":"Zapsáno"));
   if(act==="alldel"){
     if(S.oconf!=="alldel|"+sup){S.oconf="alldel|"+sup;render();return}
@@ -1935,6 +1977,10 @@ document.addEventListener("click",async e=>{
   if(b.dataset.vitpick){const [id,vid]=b.dataset.vitpick.split("|");S.vit.pick[id]=vid;delete S.vit.skip[id];render();return}
   if(b.dataset.vitskip){const id=b.dataset.vitskip;S.vit.skip[id]=!S.vit.skip[id];if(S.vit.skip[id])delete S.vit.pick[id];render();return}
   if(b.dataset.vitclose){S.vit=null;render();return}
+  if(b.dataset.sokpick){const [id,pid]=b.dataset.sokpick.split("|");S.sok.pick[id]={p:+pid,g:{}};delete S.sok.skip[id];render();return}
+  if(b.dataset.sokg){const [id,g,val]=b.dataset.sokg.split("|");const pk=S.sok.pick[id]||(S.sok.pick[id]={p:(S.sok.need.find(x=>x.id===id)||{}).pid,g:{}});pk.g[g]=+val;delete S.sok.skip[id];render();return}
+  if(b.dataset.sokskip){const id=b.dataset.sokskip;S.sok.skip[id]=!S.sok.skip[id];render();return}
+  if(b.dataset.sokclose){S.sok=null;render();return}
   if(b.dataset.supact){supAction(b.dataset.supact,b.dataset.sup,b);return}
   if(b.dataset.dodb){const d=dlDraft(),o=odbOf(b.dataset.dodb);d.odb=b.dataset.dodb;d.odbN=o?o[1]:"";dlSaveDraft();S.dq="";S.current=null;render();window.scrollTo(0,0);return}
   if(b.dataset.dview){if(S.cam)camStop();S.dview=b.dataset.dview;S.dprint=null;S.dsel=null;S.dconf=null;if(S.dview==="new"){S.dlDone=null;dlResetEmpty()}render();window.scrollTo(0,0);return}
@@ -2028,9 +2074,9 @@ window.addEventListener("online",()=>{flush();poll()});
 const OSBAL_MS=120000; S.oAct=Date.now();
 ["click","input","keydown","touchstart","scroll"].forEach(ev=>document.addEventListener(ev,()=>{S.oAct=Date.now()},{passive:true,capture:true}));
 setInterval(()=>{
-  if(!S.oopen.size||Date.now()-S.oAct<OSBAL_MS||(S.vit&&(S.vit.busy||S.vit.need)))return;
+  if(!S.oopen.size||Date.now()-S.oAct<OSBAL_MS||(S.vit&&(S.vit.busy||S.vit.need))||(S.sok&&(S.sok.busy||S.sok.need)))return;
   const a=document.activeElement;if(a&&/INPUT|TEXTAREA/.test(a.tagName)&&a.closest("#main"))return;
-  S.oopen.clear();S.osel=null;S.oconf=null;if(S.vit&&S.vit.res)S.vit=null;
+  S.oopen.clear();S.osel=null;S.oconf=null;if(S.vit&&S.vit.res)S.vit=null;if(S.sok&&S.sok.res)S.sok=null;
   if(S.module==="objednavky"&&S.oview==="list"){render();window.scrollTo(0,0)}
 },15000);
 document.addEventListener("visibilitychange",()=>{if(document.hidden)S.oHid=Date.now();else if(S.oHid&&Date.now()-S.oHid>OSBAL_MS){S.oAct=0}});
