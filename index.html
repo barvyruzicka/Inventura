@@ -1043,7 +1043,7 @@ async function sokRun(){
   if(!r.ok){if(r.err==="pin"){S.sok=null;logout("PIN už neplatí. Přihlaste se znovu.");return}
     S.sok={err:SOK_ERR[r.err]||("Nepodařilo se: "+(r.msg||r.err||"neznámá chyba"))};render();return}
   S.sok=r.need?{need:r.need,pick:Object.fromEntries(r.need.filter(x=>x.pid).map(x=>[x.id,{p:x.pid,g:Object.assign({},x.have)}])),skip:{}}:{res:r};
-  render();if(r.items)toast("Košík u Sokratesu je připravený – zkontrolujte ho a odešlete",6000);
+  render();if(r.items)toast("Seznam pro Sokrates je připravený – klepněte na Vložit vše do košíku",6000);
 }
 function sokPanel(){
   const v=S.sok;
@@ -1061,13 +1061,32 @@ function sokPanel(){
       <div class="oacts"><button class="btn primary" type="button" data-supact="sok" data-sup="Sokrates"${ok?"":" disabled"}>Pokračovat</button><button class="btn" type="button" data-sokclose="1">Zrušit</button></div>`;
   }
   const r=v.res, bad=r.items.filter(x=>!x.ok);
-  return `<div class="warnbox"><b>Košík je připravený u Sokratesu, ale objednávka ještě NENÍ odeslaná.</b> Otevřete košík (přihlášení je v e-shopu), zkontrolujte ho a dokončete objednávku. Potom tady dejte <b>Vše objednáno</b>.</div>
+  const f=v.fill, n=(r.add||[]).length;
+  const top=f&&f.blocked?`<div class="warnbox"><b>Prohlížeč zablokoval nové okno.</b> Povolte pro Tukan vyskakovací okna (ikona v adresním řádku) a klepněte znovu.</div>`
+    :f&&!f.done?`<div class="warnbox"><b>Vkládám do košíku u Sokratesu ${f.i} / ${n}…</b> Nechte obě okna otevřená, nic neklikejte.</div>`
+    :f&&f.done?`<div class="warnbox"><b>Hotovo – zboží je ve vašem košíku u Sokratesu</b> (otevřel se v novém okně). Zkontrolujte ho a objednávku odešlete. Potom tady dejte <b>Vše objednáno</b>.</div>`
+    :`<div class="warnbox"><b>Seznam je připravený.</b> Musíte být v tomto prohlížeči přihlášený do e-shopu Sokrates. Pak klepněte na <b>Vložit vše do košíku</b> – otevře se okno Sokratesu a položky se do něj vloží samy (asi 3 s na položku). Objednávka se NEODEŠLE.</div>`;
+  return `${top}
     <div class="list">${r.items.map(x=>`<div class="li" style="cursor:default"><span class="n">${esc(x.vn||x.nm)}</span><span class="q">${x.ok?fmt(x.ks)+" ks":"–"}</span>
       <span class="s">${x.ok?(x.unit==="bal"?fmt(x.q)+" bal. · ":"")+esc(x.cena||""):""}${x.warn?`${x.ok?" · ":""}<b class="${x.ok?"":"neg"}">${esc(x.warn)}</b>`:""}</span></div>`).join("")}
     ${(r.navic||[]).map(x=>`<div class="li" style="cursor:default"><span class="n">${esc(x.n)}</span><span class="q">${fmt(x.ks)} ks</span><span class="s">už bylo v košíku · ${esc(x.cena||"")}</span></div>`).join("")}</div>
     <p style="margin:6px 0 0">Celkem bez DPH: <b>${esc(r.celkem||"?")}</b>${r.doprava?` · doprava ${esc(r.doprava)}`:""}${r.skipped?` · vynecháno ${r.skipped} pol.`:""}</p>
     ${bad.length?`<div class="warnbox">${bad.length} pol. se nepodařilo vložit – doplňte je v e-shopu ručně.</div>`:""}
-    <div class="oacts"><a class="btn primary" href="${esc(r.url)}" target="_blank" rel="noopener">Otevřít košík u Sokratesu ↗</a><button class="btn" type="button" data-sokclose="1">Zavřít</button></div>`;
+    <div class="oacts">${n&&!(f&&!f.done&&!f.blocked)?`<button class="btn${f&&f.done?"":" primary"}" type="button" data-sokfill="1">${f&&f.done?"Vložit znovu":"Vložit vše do košíku ("+n+" pol.)"}</button>`:""}<a class="btn${f&&f.done?" primary":""}" href="${esc(r.url)}" target="sokrates" rel="noopener">Otevřít košík u Sokratesu ↗</a><button class="btn" type="button" data-sokclose="1">Zavřít</button></div>`;
+}
+/* Košík Sokratesu patří k přihlášení v prohlížeči → položky vloží prohlížeč uživatele: jedno okno, postupně odkazy „add“, nakonec košík. */
+function sokFill(){
+  const v=S.sok, r=v&&v.res, list=(r&&r.add)||[]; if(!list.length)return;
+  const w=window.open(list[0],"sokrates");
+  if(!w){v.fill={blocked:true};render();return}
+  v.fill={i:1};render();
+  let i=1;
+  const step=()=>{
+    if(S.sok!==v)return;
+    if(i<list.length){try{w.location.href=list[i]}catch(e){} i++; v.fill.i=i; render(); setTimeout(step,3000); return}
+    try{w.location.href=r.url}catch(e){} v.fill.done=true; render();
+  };
+  setTimeout(step,3000);
 }
 async function supAction(act,sup,b){
   if(act==="vit"){vitRun();return}
@@ -1981,6 +2000,7 @@ document.addEventListener("click",async e=>{
   if(b.dataset.sokg){const [id,g,val]=b.dataset.sokg.split("|");const pk=S.sok.pick[id]||(S.sok.pick[id]={p:(S.sok.need.find(x=>x.id===id)||{}).pid,g:{}});pk.g[g]=+val;delete S.sok.skip[id];render();return}
   if(b.dataset.sokskip){const id=b.dataset.sokskip;S.sok.skip[id]=!S.sok.skip[id];render();return}
   if(b.dataset.sokclose){S.sok=null;render();return}
+  if(b.dataset.sokfill){sokFill();return}
   if(b.dataset.supact){supAction(b.dataset.supact,b.dataset.sup,b);return}
   if(b.dataset.dodb){const d=dlDraft(),o=odbOf(b.dataset.dodb);d.odb=b.dataset.dodb;d.odbN=o?o[1]:"";dlSaveDraft();S.dq="";S.current=null;render();window.scrollTo(0,0);return}
   if(b.dataset.dview){if(S.cam)camStop();S.dview=b.dataset.dview;S.dprint=null;S.dsel=null;S.dconf=null;if(S.dview==="new"){S.dlDone=null;dlResetEmpty()}render();window.scrollTo(0,0);return}
@@ -2074,7 +2094,7 @@ window.addEventListener("online",()=>{flush();poll()});
 const OSBAL_MS=120000; S.oAct=Date.now();
 ["click","input","keydown","touchstart","scroll"].forEach(ev=>document.addEventListener(ev,()=>{S.oAct=Date.now()},{passive:true,capture:true}));
 setInterval(()=>{
-  if(!S.oopen.size||Date.now()-S.oAct<OSBAL_MS||(S.vit&&(S.vit.busy||S.vit.need))||(S.sok&&(S.sok.busy||S.sok.need)))return;
+  if(!S.oopen.size||Date.now()-S.oAct<OSBAL_MS||(S.vit&&(S.vit.busy||S.vit.need))||(S.sok&&(S.sok.busy||S.sok.need||(S.sok.fill&&!S.sok.fill.done))))return;
   const a=document.activeElement;if(a&&/INPUT|TEXTAREA/.test(a.tagName)&&a.closest("#main"))return;
   S.oopen.clear();S.osel=null;S.oconf=null;if(S.vit&&S.vit.res)S.vit=null;if(S.sok&&S.sok.res)S.sok=null;
   if(S.module==="objednavky"&&S.oview==="list"){render();window.scrollTo(0,0)}
