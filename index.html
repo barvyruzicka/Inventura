@@ -1674,6 +1674,14 @@ function fakDownload(fi){
   if(b.pairs.length)ordPost({a:"fak_save",sup:f.sup,pairs:b.pairs}).then(()=>b.pairs.forEach(([n,c])=>{(S.fak.map[f.sup]=S.fak.map[f.sup]||{})[fakKey(n)]=c})).catch(()=>{});
 }
 document.addEventListener("change",e=>{if(e.target.id==="fakFile"){fakFiles([...e.target.files]);e.target.value=""}});
+/* v Chromu na PC otevřít výběr souboru rovnou ve Stažených (jinde běžný výběr) */
+document.addEventListener("click",async e=>{
+  if(e.target.id==="fakFile"||!e.target.closest("#fakDrop")||!window.showOpenFilePicker)return;
+  e.preventDefault();
+  try{const hs=await window.showOpenFilePicker({startIn:"downloads",multiple:true,types:[{description:"PDF faktury",accept:{"application/pdf":[".pdf"]}}]});
+    fakFiles(await Promise.all(hs.map(h=>h.getFile())))}
+  catch(err){if(err&&err.name!=="AbortError")$("#fakFile").click()}
+});
 document.addEventListener("dragover",e=>{if(S.module==="faktury")e.preventDefault()});
 document.addEventListener("drop",e=>{if(S.module==="faktury"){e.preventDefault();fakFiles([...(e.dataTransfer.files||[])])}});
 document.addEventListener("input",e=>{const k=e.target.dataset&&e.target.dataset.fakq;if(k!=null){S.fak.q[k]=e.target.value;render()}});
