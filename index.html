@@ -1630,7 +1630,8 @@ function viewFak(){
   const L=S.fak.list;
   let h=`<section class="panel"><h2>Přijatá faktura v PDF → ISDOC pro Cézar</h2>
     <label class="btn primary big" style="display:block;white-space:normal;box-sizing:border-box;max-width:100%;text-align:center;cursor:pointer" id="fakDrop">Vybrat PDF faktury${MOBIL?"":" (nebo je sem přetáhněte)"}<input type="file" id="fakFile" accept="application/pdf,.pdf" multiple hidden></label>
-    <p class="hint" style="margin:0">Zatím umím faktury od: <b>Viton</b>. Paletu vynechávám. ISDOC uložím do složky <b>Faktury</b> na serveru (z ostatních PC disk Z:), v Cézaru pak nová příjemka → import ISDOC.</p>
+    <p class="hint" style="margin:0">Zatím umím faktury od: <b>Viton</b>. Paletu vynechávám.</p>
+    <div class="hint" style="border-left:3px solid var(--line);padding-left:8px"><b>Kde ISDOC najdete:</b><br>na serveru <b>C:\\Cezar SQL\\Prenosy\\Faktury</b><br>na ostatních PC <b>Z:\\Prenosy\\Faktury</b><br>V Cézaru: nová příjemka → import ISDOC → vybrat soubor z této složky.</div>
     ${S.fak.busy?`<div class="warnbox">Čtu fakturu…</div>`:""}</section>`;
   L.forEach((f,fi)=>{
     const lines=f.items.map((x,i)=>fakLine(f,i)), chyb=lines.filter(l=>!l.row).length, t=fakTotals(f), S0=FAK_SUP[f.sup];
@@ -1650,7 +1651,7 @@ function viewFak(){
         </div>`}).join("")}</div>
       <p style="margin:6px 0 0">Bez DPH <b>${fakKc(Math.round(t.zak*100)/100)}</b> · s DPH ${fakKc(Math.round(t.cel*100)/100)} · k úhradě <b>${isFinite(f.uhrada)?fakKc(f.uhrada):"?"}</b></p>
       ${chyb?`<div class="warnbox">${chyb} pol. ještě není spárováno se zbožím v Cézaru.</div>`:""}
-      ${f.saved?`<div class="warnbox"><b>Uloženo pro Cézar: ${esc(f.saved)}</b> (složka Faktury). V Cézaru: nová příjemka → import ISDOC.</div>`:""}
+      ${f.saved?`<div class="warnbox"><b>Uloženo pro Cézar: ${esc(f.saved)}</b> – server C:\\Cezar SQL\\Prenosy\\Faktury, ostatní PC Z:\\Prenosy\\Faktury. V Cézaru: nová příjemka → import ISDOC.</div>`:""}
       <div class="oacts"><button class="btn primary" type="button" data-faksave="${fi}"${chyb?" disabled":""}>${f.saved?"Uložit znovu":"Uložit pro Cézar"}</button></div>
       <p class="hint" style="margin:0">Kdyby uložení nešlo: <button type="button" class="chip" data-fakdl="${fi}">stáhnout ISDOC do počítače</button></p>
     </section>`;
