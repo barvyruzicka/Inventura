@@ -278,7 +278,7 @@ body.wide #main{width:100%}
 "use strict";
 const AREAS=[{id:"SKLAD",label:"Sklad",c:"--sklad"},{id:"OBCHOD",label:"Obchod",c:"--obchod"},{id:"MICHARNA",label:"Míchárna",c:"--michr"}];
 const AREA_LABEL=Object.fromEntries(AREAS.map(a=>[a.id,a.label]));
-function modFromHash(){const h=location.hash;return h==="#inventura"?"inventura":h==="#objednavky"?"objednavky":h==="#dodaci"?"dodaci":h==="#stitky"?"stitky":"home"}
+function modFromHash(){const h=location.hash;return h==="#inventura"?"inventura":h==="#objednavky"?"objednavky":h==="#dodaci"?"dodaci":h==="#stitky"?"stitky":h==="#faktury"?"faktury":"home"}
 const store={get(k,d){try{const v=localStorage.getItem("inv."+k);return v==null?d:JSON.parse(v)}catch(e){return d}},
   set(k,v){try{localStorage.setItem("inv."+k,JSON.stringify(v))}catch(e){}}};
 
@@ -602,12 +602,12 @@ function scrollToCard(){requestAnimationFrame(()=>{const c=$("#card");if(c&&S.ca
 function render(){
   document.body.dataset.area=S.area;
   $("#whoName").textContent=S.name||"nepřihlášen";
-  const inv=S.module==="inventura", ord=S.module==="objednavky", dod=S.module==="dodaci", lab=S.module==="stitky", inApp=!!(API&&S.name&&!S.newPin);
+  const inv=S.module==="inventura", ord=S.module==="objednavky", dod=S.module==="dodaci", lab=S.module==="stitky", fak=S.module==="faktury", inApp=!!(API&&S.name&&!S.newPin);
   document.body.classList.toggle("wide",lab&&inApp);
-  if(ord||dod)document.body.dataset.area="OBCHOD";
-  $("#appTitle").lastChild.textContent=inv?"Inventura":ord?"Objednávky":dod?"Dodací listy":lab?"Štítky":"Tukan";
-  $("#appLogo").hidden=inv||ord||dod||lab;
-  $("#homeBtn").hidden=!((inv||ord||dod||lab)&&inApp);
+  if(ord||dod||fak)document.body.dataset.area="OBCHOD";
+  $("#appTitle").lastChild.textContent=inv?"Inventura":ord?"Objednávky":dod?"Dodací listy":lab?"Štítky":fak?"Faktury":"Tukan";
+  $("#appLogo").hidden=inv||ord||dod||lab||fak;
+  $("#homeBtn").hidden=!((inv||ord||dod||lab||fak)&&inApp);
   $("#areas").hidden=!(inv&&inApp);
   const tabs=$("#tabs"); tabs.hidden=!((inv||ord||dod)&&inApp);
   tabs.innerHTML=inv?[["scan","Počítání"],["overview","Přehled"],["settings","Nastavení"]].map(([v,l])=>`<button type="button" data-view="${v}" aria-current="${S.view===v?"page":"false"}">${l}</button>`).join("")
@@ -621,7 +621,7 @@ function render(){
   document.querySelectorAll("#main input[type=text],#main input[type=search],#main input[type=url]").forEach(i=>{if(i.id)vals[i.id]=i.value});
   if(S.current!==prevCard){delete vals.qty;delete vals.onote;delete vals.ofree}
   if(S.resetCode){delete vals.code;S.resetCode=false}
-  $("#main").innerHTML=!API?viewSetup():(!S.name||S.newPin)?viewLogin():ord?(S.oview==="list"?viewOrdList():viewOrdAdd()):dod?(S.dprint?viewDlPrint():S.dview==="list"?viewDlList():viewDlNew()):lab?viewLab():!inv?viewHome():S.view==="scan"?viewScan():S.view==="overview"?viewOverview():viewSettings();
+  $("#main").innerHTML=!API?viewSetup():(!S.name||S.newPin)?viewLogin():ord?(S.oview==="list"?viewOrdList():viewOrdAdd()):dod?(S.dprint?viewDlPrint():S.dview==="list"?viewDlList():viewDlNew()):lab?viewLab():fak?viewFak():!inv?viewHome():S.view==="scan"?viewScan():S.view==="overview"?viewOverview():viewSettings();
   for(const id in vals){const el=document.getElementById(id);if(el)el.value=vals[id]}
   const card=$("#card");if(card&&S.current===prevCard)card.classList.remove("flash");
   S.renderedCard=S.current;
@@ -749,6 +749,8 @@ function viewHome(){
       <span><b>Dodací listy</b><small>${S.dl.loaded&&dlOpenCount()?`Čeká na předání do Cézaru: ${fmt(dlOpenCount())} DL`:"Odběry firem na dodák → výdejky v Cézaru"}</small></span><span class="go">›</span></button>
     <button type="button" class="tile" data-mod="stitky"><span class="ic" style="--c:var(--ok)">${ICON_LAB}</span>
       <span><b>Štítky</b><small>${S.lab.items.length?`Ke tisku ${fmt(S.lab.items.reduce((a,b)=>a+b.q,0))} štítků`:"Regálové štítky s čárovým kódem, tisk na A4"}</small></span><span class="go">›</span></button>
+    <button type="button" class="tile" data-mod="faktury"><span class="ic" style="--c:var(--sklad)">${ICONS.obj}</span>
+      <span><b>Faktury → Cézar</b><small>Přijatá faktura v PDF → ISDOC pro příjemku</small></span><span class="go">›</span></button>
     <button type="button" class="tile" data-mod="inventura"><span class="ic" style="--c:var(--sklad)">${ICONS.inv}</span>
       <span><b>Inventura</b><small>${all?`Spočítáno celkem ${fmt(all)} pol. · moje ${fmt(mine)} pol. / ${fmt(pcs)} ks`:"Počítání skladu, export do Cézaru"}</small></span><span class="go">›</span></button>
   </section>
@@ -1521,9 +1523,172 @@ function viewDlPrint(){
   </section>`;
 }
 
+/* === FAKTURY: PDF → ISDOC === */
+const FAK_SUP={
+  viton:{nm:"VITON s.r.o.",ico:"25164953",dic:"CZ25164953",ul:"Planá",cp:"90",mesto:"České Budějovice",psc:"370 01",
+    banka:{ucet:"183895408",kod:"0600",nazev:"MONETA Money Bank a.s.",iban:"CZ5506000000000183895408",bic:"AGBACZPP"},
+    poznej:t=>/VITON s\.r\.o\./.test(t)&&/25164953/.test(t)}
+};
+const fakNum=s=>{const n=parseFloat(String(s||"").replace(/[\s ]/g,"").replace(",","."));return isFinite(n)?n:NaN};
+/* slova PDF → řádky [{p,y,w:[[x,text]]}] */
+const PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+async function fakPdfLib(){
+  await loadLib(PDFJS+"pdf.min.js");
+  if(!window.pdfjsLib.GlobalWorkerOptions.workerSrc){
+    try{const t=await (await fetch(PDFJS+"pdf.worker.min.js")).text();window.pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([t],{type:"text/javascript"}))}
+    catch(e){window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+"pdf.worker.min.js"}}
+  return window.pdfjsLib;
+}
+async function fakWords(buf){
+  const pdfjsLib=await fakPdfLib();
+  const doc=await pdfjsLib.getDocument({data:buf}).promise, L=[];
+  for(let p=1;p<=doc.numPages;p++){
+    const pg=await doc.getPage(p), h=pg.getViewport({scale:1}).height, tc=await pg.getTextContent(), ws=[];
+    for(const it of tc.items){const s=it.str.trim();if(s)ws.push([h-it.transform[5],it.transform[4],s])}
+    ws.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+    let cur=null;for(const [y,x,s] of ws){if(cur&&Math.abs(cur.y-y)<3)cur.w.push([x,s]);else{cur={p,y,w:[[x,s]]};L.push(cur)}}
+  }
+  L.forEach(l=>l.w.sort((a,b)=>a[0]-b[0]));
+  return L;
+}
+const fakCol=(l,a,b)=>l.w.filter(w=>w[0]>=a&&w[0]<b).map(w=>w[1]).join(" ").trim();
+function fakDate(s){const m=/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/.exec(s||"");if(!m)return "";const y=m[3].length===2?"20"+m[3]:m[3];return `${y}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`}
+function fakParseViton(L){
+  const txt=L.map(l=>l.w.map(w=>w[1]).join(" ")).join("\n"), g=r=>(r.exec(txt)||[])[1]||"";
+  const f={sup:"viton",id:g(/Faktura :\s*(\d{6,})/),vyst:fakDate(g(/Datum vystavení daňového dokladu :\s*([\d.]+)/)),duzp:fakDate(g(/Datum uskutečnění plnění :\s*([\d.]+)/)),
+    splat:fakDate(g(/Datum splatnosti :\s*([\d.]+)/)),obj:g(/Objednávka :\s*([\d.]+)/),uhrada:fakNum(g(/K úhradě celkem v CZK\s+(\d[\d ]*,\d\d)/)),items:[],skip:[]};
+  const rec=/Základní\s+21\s+(\d[\d ]*,\d\d)\s+(\d[\d ]*,\d\d)\s+(\d[\d ]*,\d\d)/.exec(txt);
+  f.zaklad=rec?fakNum(rec[1]):NaN; f.dph=rec?fakNum(rec[2]):NaN; f.celkem=rec?fakNum(rec[3]):NaN;
+  for(const l of L){
+    const w0=l.w[0]; if(!(w0[0]<32&&/^\d+$/.test(w0[1])))continue;
+    const ksT=fakCol(l,300,342); if(!/ks$/.test(ksT))continue;
+    let nm=fakCol(l,33,190);const mm=/^(.*?\d(?:[\d,.]*)\s?(?:kg|l|ml|g))(?=\s|$)/.exec(nm);if(mm)nm=mm[1];
+    const it={n:nm,ks:fakNum(ksT.replace(/ks$/,"")),mj:fakCol(l,345,398),jc:fakNum(fakCol(l,398,445)),cc:fakNum(fakCol(l,445,500)),dph:fakNum(fakCol(l,500,520)),cel:fakNum(fakCol(l,520,600))};
+    if(!it.n||!(it.ks>0)||!isFinite(it.cc))continue;
+    (/^PALETA/i.test(it.n)?f.skip:f.items).push(it);
+  }
+  return f;
+}
+async function fakParse(buf){
+  const L=await fakWords(buf), txt=L.map(l=>l.w.map(w=>w[1]).join(" ")).join("\n");
+  for(const k in FAK_SUP)if(FAK_SUP[k].poznej(txt)){const f=k==="viton"?fakParseViton(L):null;if(f)return f}
+  return {err:"Tuto fakturu zatím neumím přečíst (dodavatel není nastavený)."};
+}
+/* kontrola součtů */
+function fakCheck(f){
+  const s=f.items.concat(f.skip).reduce((a,x)=>a+x.cc,0);
+  return {ok:isFinite(f.zaklad)&&Math.abs(s-f.zaklad)<0.005&&f.items.length>0,soucet:Math.round(s*100)/100};
+}
+function fakXml(f,map){
+  const S=FAK_SUP[f.sup], x=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])), d2=n=>(Math.round(n*100)/100).toFixed(2), d4=n=>(Math.round(n*1e4)/1e4).toFixed(4);
+  const party=(nm,ico,dic,ul,cp,mesto,psc)=>`<Party><PartyIdentification><ID>${ico}</ID></PartyIdentification><PartyName><Name>${x(nm)}</Name></PartyName><PostalAddress><StreetName>${x(ul)}</StreetName><BuildingNumber>${x(cp)}</BuildingNumber><CityName>${x(mesto)}</CityName><PostalZone>${x(psc)}</PostalZone><Country><IdentificationCode>CZ</IdentificationCode><Name>Česká republika</Name></Country></PostalAddress><PartyTaxScheme><CompanyID>${dic}</CompanyID><TaxScheme>VAT</TaxScheme></PartyTaxScheme></Party>`;
+  let zak=0,cel=0;
+  const lines=f.items.map((it,i)=>{const m=map[i]||{};zak+=it.cc;cel+=it.cel;const cis=String(m.cis||"").replace(/\.01$/,"");
+    return `<InvoiceLine><ID>${i+1}</ID><InvoicedQuantity unitCode="ks">${it.ks}</InvoicedQuantity><LineExtensionAmount>${d2(it.cc)}</LineExtensionAmount><LineExtensionAmountTaxInclusive>${d2(it.cel)}</LineExtensionAmountTaxInclusive><LineExtensionTaxAmount>${d2(it.cel-it.cc)}</LineExtensionTaxAmount><UnitPrice>${d4(it.cc/it.ks)}</UnitPrice><UnitPriceTaxInclusive>${d4(it.cel/it.ks)}</UnitPriceTaxInclusive><ClassifiedTaxCategory><Percent>${it.dph}</Percent><VATCalculationMethod>0</VATCalculationMethod><VATApplicable>true</VATApplicable></ClassifiedTaxCategory><Item><Description>${x(it.n)}</Description>${m.ean?`<CatalogueItemIdentification><ID>${x(m.ean)}</ID></CatalogueItemIdentification>`:""}<SellersItemIdentification><ID>${x(cis||it.n)}</ID></SellersItemIdentification></Item></InvoiceLine>`}).join("");
+  zak=Math.round(zak*100)/100;cel=Math.round(cel*100)/100;const dph=cel-zak, pay=isFinite(f.uhrada)?f.uhrada:cel, zao=pay-cel;
+  const uuid=(crypto.randomUUID?crypto.randomUUID():String(Date.now())).toUpperCase();
+  return `<?xml version="1.0" encoding="utf-8"?>\n<Invoice xmlns="http://isdoc.cz/namespace/2013" version="6.0.2"><DocumentType>1</DocumentType><ID>${x(f.id)}</ID><UUID>${uuid}</UUID><IssuingSystem>Tukan (z PDF faktury)</IssuingSystem><IssueDate>${f.vyst}</IssueDate><TaxPointDate>${f.duzp||f.vyst}</TaxPointDate><VATApplicable>true</VATApplicable><ElectronicPossibilityAgreementReference languageID="cs">http://</ElectronicPossibilityAgreementReference><LocalCurrencyCode>CZK</LocalCurrencyCode><CurrRate>1</CurrRate><RefCurrRate>1</RefCurrRate>`+
+    `<AccountingSupplierParty>${party(S.nm,S.ico,S.dic,S.ul,S.cp,S.mesto,S.psc)}</AccountingSupplierParty><AccountingCustomerParty>${party("BL Růžička s.r.o.","07338392","CZ07338392","V. Nezvala","94/6","Třebíč","674 01")}</AccountingCustomerParty>`+
+    `<OrderReferences><OrderReference id="Obj_Header"><SalesOrderID>_</SalesOrderID><ExternalOrderID>${x(f.obj)}</ExternalOrderID></OrderReference></OrderReferences><InvoiceLines>${lines}</InvoiceLines>`+
+    `<TaxTotal><TaxSubTotal><TaxableAmount>${d2(zak)}</TaxableAmount><TaxAmount>${d2(dph)}</TaxAmount><TaxInclusiveAmount>${d2(cel)}</TaxInclusiveAmount><AlreadyClaimedTaxableAmount>0</AlreadyClaimedTaxableAmount><AlreadyClaimedTaxAmount>0</AlreadyClaimedTaxAmount><AlreadyClaimedTaxInclusiveAmount>0</AlreadyClaimedTaxInclusiveAmount><DifferenceTaxableAmount>${d2(zak)}</DifferenceTaxableAmount><DifferenceTaxAmount>${d2(dph)}</DifferenceTaxAmount><DifferenceTaxInclusiveAmount>${d2(cel)}</DifferenceTaxInclusiveAmount><TaxCategory><Percent>21</Percent><VATApplicable>true</VATApplicable></TaxCategory></TaxSubTotal><TaxAmount>${d2(dph)}</TaxAmount></TaxTotal>`+
+    `<LegalMonetaryTotal><TaxExclusiveAmount>${d2(zak)}</TaxExclusiveAmount><TaxInclusiveAmount>${d2(cel)}</TaxInclusiveAmount><AlreadyClaimedTaxExclusiveAmount>0</AlreadyClaimedTaxExclusiveAmount><AlreadyClaimedTaxInclusiveAmount>0</AlreadyClaimedTaxInclusiveAmount><DifferenceTaxExclusiveAmount>${d2(zak)}</DifferenceTaxExclusiveAmount><DifferenceTaxInclusiveAmount>${d2(cel)}</DifferenceTaxInclusiveAmount><PayableRoundingAmount>${d2(zao)}</PayableRoundingAmount><PaidDepositsAmount>0</PaidDepositsAmount><PayableAmount>${d2(pay)}</PayableAmount></LegalMonetaryTotal>`+
+    `<PaymentMeans><Payment><PaidAmount>${d2(pay)}</PaidAmount><PaymentMeansCode>42</PaymentMeansCode><Details><PaymentDueDate>${f.splat}</PaymentDueDate><ID>${S.banka.ucet}</ID><BankCode>${S.banka.kod}</BankCode><Name>${x(S.banka.nazev)}</Name><IBAN>${S.banka.iban}</IBAN><BIC>${S.banka.bic}</BIC><VariableSymbol>${x(f.id)}</VariableSymbol></Details></Payment></PaymentMeans></Invoice>\n`;
+}
+
+/* ---- UI: Faktury ---- */
+S.fak={list:[],busy:0,q:{},map:{}};
+const fakKc=n=>Number(n).toLocaleString("cs-CZ",{minimumFractionDigits:2,maximumFractionDigits:2})+" Kč";
+const fakKey=s=>String(s||"").replace(/\s+/g," ").trim().toLowerCase();
+async function fakMapLoad(sup){
+  if(S.fak.map[sup])return S.fak.map[sup];
+  const r=await ordPost({a:"fak_map",sup});return S.fak.map[sup]=r.map||{};
+}
+/* párování řádku: ruční výběr > zapamatované > nic */
+function fakLine(f,i){
+  const it=f.items[i], cis=f.pick[i]||(S.fak.map[f.sup]||{})[fakKey(it.n)]||"";
+  const r=cis?itemRow(cis):null;
+  return {cis:r?cis:"",row:r,ean:r&&r[1]?String(r[1]):""};
+}
+async function fakFiles(files){
+  for(const file of files){
+    if(!/\.pdf$/i.test(file.name)&&file.type!=="application/pdf"){toast(`${file.name}: není PDF`,4000);continue}
+    S.fak.busy++;render();
+    try{
+      const f=await fakParse(new Uint8Array(await file.arrayBuffer()));
+      if(f.err){toast(`${file.name}: ${f.err}`,7000);continue}
+      f.file=file.name;f.pick={};f.chk=fakCheck(f);
+      await fakMapLoad(f.sup);
+      S.fak.list=S.fak.list.filter(x=>!(x.sup===f.sup&&x.id===f.id));S.fak.list.push(f);
+    }catch(e){if(e.message!=="pin")toast(`${file.name}: PDF se nepodařilo přečíst`,6000)}
+    finally{S.fak.busy--;render()}
+  }
+}
+function fakTotals(f){
+  let zak=0,cel=0;f.items.forEach(x=>{zak+=x.cc;cel+=x.cel});return {zak,cel};
+}
+function viewFak(){
+  const L=S.fak.list;
+  let h=`<section class="panel"><h2>Přijatá faktura v PDF → ISDOC pro Cézar</h2>
+    <label class="btn primary big" style="text-align:center;cursor:pointer" id="fakDrop">Vybrat PDF faktury (nebo je sem přetáhněte)<input type="file" id="fakFile" accept="application/pdf,.pdf" multiple hidden></label>
+    <p class="hint" style="margin:0">Zatím umím faktury od: <b>Viton</b>. Paletu vynechávám. ISDOC uložím do složky <b>Faktury</b> na serveru (z ostatních PC disk Z:), v Cézaru pak nová příjemka → import ISDOC.</p>
+    ${S.fak.busy?`<div class="warnbox">Čtu fakturu…</div>`:""}</section>`;
+  L.forEach((f,fi)=>{
+    const lines=f.items.map((x,i)=>fakLine(f,i)), chyb=lines.filter(l=>!l.row).length, t=fakTotals(f), S0=FAK_SUP[f.sup];
+    h+=`<section class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${esc(S0.nm)} · faktura ${esc(f.id)}</h2><button class="btn" type="button" data-fakdel="${fi}">Zavřít</button></div>
+      <p class="hint" style="margin:0">Vystaveno ${esc(f.vyst)} · DUZP ${esc(f.duzp)} · splatnost ${esc(f.splat)} · objednávka ${esc(f.obj||"–")}</p>
+      ${f.chk.ok?`<div class="hint">✔ Součet položek ${fakKc(f.chk.soucet)} = základ DPH na faktuře.</div>`:`<div class="warnbox"><b>Pozor: součet položek (${fakKc(f.chk.soucet)}) nesedí se základem na faktuře (${isFinite(f.zaklad)?fakKc(f.zaklad):"nenalezen"}).</b> Fakturu zkontrolujte ručně.</div>`}
+      ${f.skip.length?`<p class="hint" style="margin:0">Vynecháno: ${f.skip.map(x=>esc(x.n)+" ("+fakKc(x.cc)+")").join(", ")}</p>`:""}
+      <div class="list">${f.items.map((x,i)=>{const l=lines[i],k=fi+"|"+i,q=S.fak.q[k];
+        const hits=q&&!l.row||q&&S.fak.edit===k?searchText(q).slice(0,6):[];
+        return `<div class="li" style="cursor:default;display:block">
+          <div class="row" style="justify-content:space-between;gap:8px"><span class="n">${esc(x.n)}</span><span class="q">${fmt(x.ks)} ks</span></div>
+          <div class="hint">za kus ${fakKc(Math.round(x.cc/x.ks*100)/100)} · celkem ${fakKc(x.cc)}${x.mj?" · "+esc(x.mj):""}</div>
+          ${l.row&&S.fak.edit!==k?`<div class="hint">→ <b>${esc(l.cis)}</b> ${esc(l.row[0])}${l.ean?" · EAN "+esc(l.ean):" · <b>bez EAN</b> (páruje se podle čísla)"} <button type="button" class="chip" data-fakedit="${k}">změnit</button></div>`
+            :`<div class="warnbox" style="margin-top:4px">${l.row?"Vyberte jiné zboží:":"Nevím, které zboží v Cézaru to je. Napište číslo nebo část názvu:"}</div>
+              <input type="search" id="fakq-${fi}-${i}" data-fakq="${k}" placeholder="např. 513-720 nebo PE 33 2,94" value="${esc(q||"")}" style="margin-top:4px">
+              ${hits.length?`<div class="chips" style="margin-top:6px">${hits.map(ix=>{const r=S.catalog[ix];return `<button type="button" class="chip" data-fakpick="${k}|${esc(r[2])}">${esc(r[2])} · ${esc(r[0])}</button>`}).join("")}</div>`:""}`}
+        </div>`}).join("")}</div>
+      <p style="margin:6px 0 0">Bez DPH <b>${fakKc(Math.round(t.zak*100)/100)}</b> · s DPH ${fakKc(Math.round(t.cel*100)/100)} · k úhradě <b>${isFinite(f.uhrada)?fakKc(f.uhrada):"?"}</b></p>
+      ${chyb?`<div class="warnbox">${chyb} pol. ještě není spárováno se zbožím v Cézaru.</div>`:""}
+      ${f.saved?`<div class="warnbox"><b>Uloženo pro Cézar: ${esc(f.saved)}</b> (složka Faktury). V Cézaru: nová příjemka → import ISDOC.</div>`:""}
+      <div class="oacts"><button class="btn primary" type="button" data-faksave="${fi}"${chyb?" disabled":""}>${f.saved?"Uložit znovu":"Uložit pro Cézar"}</button></div>
+      <p class="hint" style="margin:0">Kdyby uložení nešlo: <button type="button" class="chip" data-fakdl="${fi}">stáhnout ISDOC do počítače</button></p>
+    </section>`;
+  });
+  return h;
+}
+function fakBuild(f){
+  const map=f.items.map((x,i)=>{const l=fakLine(f,i);return {cis:l.cis,ean:l.ean}});
+  return {xml:fakXml(f,map),file:`FV-${f.sup.toUpperCase()}-${f.id}.isdoc`,pairs:Object.keys(f.pick).map(i=>[f.items[i].n,f.pick[i]])};
+}
+async function fakSave(fi){
+  const f=S.fak.list[fi];if(!f)return;const b=fakBuild(f);
+  try{const r=await ordPost({a:"fak_save",sup:f.sup,pairs:b.pairs,file:b.file,text:b.xml});
+    b.pairs.forEach(([n,c])=>{(S.fak.map[f.sup]=S.fak.map[f.sup]||{})[fakKey(n)]=c});
+    f.saved=r.file||b.file;toast("Uloženo pro Cézar: "+f.saved,6000);render()}
+  catch(e){if(e.message!=="pin")toast(e.message==="nofak"?"Na serveru chybí složka C:\\Cezar SQL\\Prenosy\\Faktury – založte ji a za pár minut to zkuste znovu. Zatím ISDOC stáhněte do počítače.":"Uložení se nepovedlo: "+e.message,9000)}
+}
+function fakDownload(fi){
+  const f=S.fak.list[fi];if(!f)return;const b=fakBuild(f);
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([b.xml],{type:"application/xml"}));a.download=b.file;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
+  if(b.pairs.length)ordPost({a:"fak_save",sup:f.sup,pairs:b.pairs}).then(()=>b.pairs.forEach(([n,c])=>{(S.fak.map[f.sup]=S.fak.map[f.sup]||{})[fakKey(n)]=c})).catch(()=>{});
+}
+document.addEventListener("change",e=>{if(e.target.id==="fakFile"){fakFiles([...e.target.files]);e.target.value=""}});
+document.addEventListener("dragover",e=>{if(S.module==="faktury")e.preventDefault()});
+document.addEventListener("drop",e=>{if(S.module==="faktury"){e.preventDefault();fakFiles([...(e.dataTransfer.files||[])])}});
+document.addEventListener("input",e=>{const k=e.target.dataset&&e.target.dataset.fakq;if(k!=null){S.fak.q[k]=e.target.value;render()}});
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b||S.module!=="faktury")return;
+  if(b.dataset.fakpick){const [fi,i,cis]=b.dataset.fakpick.split("|");const f=S.fak.list[+fi];if(f){f.pick[+i]=cis;f.saved="";delete S.fak.q[fi+"|"+i];S.fak.edit=null;render()}return}
+  if(b.dataset.fakedit){S.fak.edit=b.dataset.fakedit;render();const el=document.getElementById("fakq-"+b.dataset.fakedit.replace("|","-"));if(el)el.focus();return}
+  if(b.dataset.faksave!=null){fakSave(+b.dataset.faksave);return}
+  if(b.dataset.fakdl!=null){fakDownload(+b.dataset.fakdl);return}
+  if(b.dataset.fakdel!=null){S.fak.list.splice(+b.dataset.fakdel,1);render();return}
+});
+
 function goModule(m){
   if(S.cam)camStop();
-  S.module=["inventura","objednavky","dodaci","stitky"].includes(m)?m:"home";
+  S.module=["inventura","objednavky","dodaci","stitky","faktury"].includes(m)?m:"home";
   S.current=null;S.choices=null;S.results=null;S.notFound=null;S.query="";
   if(S.module==="objednavky"){S.ofix="";S.oview="add";loadOrders()}
   if(S.module==="dodaci"){S.dview="new";S.dprint=null;S.dlDone=null;S.dq="";dlResetEmpty();loadDl();loadOdb()}
